@@ -1,0 +1,4 @@
+dipy==1.4.1
+matplotlib==3.4.3
+nibabel==3.2.1
+numpy==1.21.3

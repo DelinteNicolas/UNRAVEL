@@ -6,11 +6,14 @@
 Welcome to TIME's documentation!
 ================================
 
+Welcome to the documentation of Tractography Informed Multi-fascicle microstructure Estimation!
+
+The code is available at https://github.com/DelinteNicolas/TIME
+
 .. toctree::
-   :maxdepth: 2
-   :caption: Contents:
+   :caption: Getting Started
 
-
+   api
 
 Indices and tables
 ==================

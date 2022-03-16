@@ -1,0 +1,471 @@
+#Nothing
+import FreeSurfer.qry
+
+hemisphere.left |= '*.left'
+hemisphere.right |= '*.right'
+cerebellum.right |= 'Cerebellum_*.right'
+cerebellum.left |= 'Cerebellum_*.left'
+
+medulla |= 175
+pons |= 174
+midbrain |= 173
+cerebellarpedoncle |= 178
+brainstem_other |= Brain_Stem
+brainstem |= (medulla
+              or pons
+              or midbrain
+              or cerebellarpedoncle
+              or brainstem_other) 
+midCC |= (CC_Posterior 
+          or CC_Mid_Posterior
+          or CC_Central
+          or CC_Mid_Anterior
+          or CC_Anterior)
+
+
+middlefrontal.side |= (rostralmiddlefrontal.side 
+                       or caudalmiddlefrontal.side)  
+inferiorfrontal.side |= (parsopercularis.side 
+                         or parstriangularis.side 
+                         or parsorbitalis.side) 
+orbitofrontal.side |= (lateralorbitofrontal.side 
+                       or medialorbitofrontal.side)
+
+cingulate.side |= (caudalanteriorcingulate.side                 
+                or posteriorcingulate.side 
+                or rostralanteriorcingulate.side
+                or isthmuscingulate.side)
+
+
+frontal.side |= (superiorfrontal.side 
+                 or middlefrontal.side 
+                 or inferiorfrontal.side 
+                 or orbitofrontal.side 
+                 or frontalpole.side 
+                 or precentral.side 
+                 or paracentral.side)
+
+temporal.side |= (entorhinal.side                   
+                  or temporalpole.side 
+                  or fusiform.side 
+                  or superiortemporal.side 
+                  or middletemporal.side 
+                  or inferiortemporal.side 
+                  or transversetemporal.side 
+                  or bankssts.side)
+parietal.side |= (postcentral.side 
+                  or precuneus.side 
+                  or supramarginal.side 
+                  or superiorparietal.side 
+                  or inferiorparietal.side)
+occipital.side |= (lingual.side 
+                   or pericalcarine.side 
+                   or cuneus.side 
+                   or lateraloccipital.side 
+                   or lingual.side)
+
+
+#test_lateral.side = hemisphere.side not in medial_of(Putamen.side) not in hemisphere.opposite
+#test_medial.side =  hemisphere.side not in lateral_of(Putamen.side) not in hemisphere.opposite
+#test_anterior.side =  hemisphere.side not in posterior_of(Putamen.side) not in hemisphere.opposite
+#test_posterior.side =  hemisphere.side not in anterior_of(Putamen.side) not in hemisphere.opposite
+#test_superior.side =  only(superior_of(Putamen.side)) not in hemisphere.opposite
+#test_inferior.side =  only(inferior_of(Putamen.side)) not in hemisphere.opposite
+
+modbrain=midbrain
+
+########################################
+### CST - Added			     ###
+########################################
+
+#Define bi-laterally the cortico-spinal tract
+CST.side =  (
+  endpoints_in(brainstem) and
+  (endpoints_in(precentral.side) or endpoints_in(postcentral.side))
+)
+
+
+########################################
+### Superior longitudinal fasciculus ###
+########################################
+SLF1.side = (endpoints_in(superiorparietal.side                         
+                          or precuneus.side)
+             and endpoints_in(superiorfrontal.side)
+             not in lateral_of(superiorparietal.side)
+             not in anterior_of(caudalmiddlefrontal.side)
+             and only(frontal.side 
+                      or parietal.side 
+                      or centrum_semiovale.side))
+
+SLF2.side = (endpoints_in(inferiorparietal.side)
+             and endpoints_in(caudalmiddlefrontal.side
+                              or rostralmiddlefrontal.side
+                              or parsopercularis.side
+                              or parstriangularis.side)
+             not in posterior_of(supramarginal.side)
+             not in anterior_of(caudalmiddlefrontal.side)
+             not in medial_of(inferiorparietal.side)
+             and only(frontal.side 
+                      or parietal.side 
+                      or centrum_semiovale.side))
+
+SLF3.side = (endpoints_in(supramarginal.side)
+             and endpoints_in(lateralorbitofrontal.side
+                              or rostralmiddlefrontal.side
+                              or inferiorfrontal.side)
+             not in posterior_of(supramarginal.side)
+             not in medial_of(inferiorparietal.side)
+             and only(frontal.side 
+                      or parietal.side 
+                      or centrum_semiovale.side))
+
+SLF.side = SLF1.side or SLF2.side or SLF3.side
+
+
+#########################
+### Arcuate Fasiculus ###
+#########################
+AF_frontotemporal.side = (endpoints_in((precentral.side
+                                        or parsopercularis.side 
+                                        or parstriangularis.side 
+                                        or middlefrontal.side)
+                                       not in medial_of(middlefrontal.side)
+                                       not in posterior_of(middlefrontal.side))                        
+                                       not in anterior_of(parstriangularis.side)
+                          and endpoints_in(superiortemporal.side 
+                                           or middletemporal.side 
+                                           or inferiortemporal.side) 
+                          and centrum_semiovale.side 
+                          and parietal.side
+                          not in caudate.side
+                          not in pallidum.side
+                          not in putamen.side
+                          not in Thalamus_Proper.side
+                          not in brainstem
+                          not in superiorfrontal.side
+                          not in superiorparietal.side
+                          not in occipital.side
+                          not in hemisphere.opposite)
+
+AF_frontoparietal.side = (endpoints_in((precentral.side
+                                        or parsopercularis.side 
+                                        or parstriangularis.side 
+                                        or middlefrontal.side)
+                                       not in medial_of(middlefrontal.side)
+                                       not in posterior_of(middlefrontal.side))                        
+                                       not in anterior_of(parstriangularis.side)
+                          and endpoints_in((supramarginal.side 
+                                            or inferiorparietal.side)
+                                           not in posterior_of(supramarginal.side)) 
+                          and centrum_semiovale.side 
+                          not in superiorfrontal.side
+                          not in superiorparietal.side
+                          not in caudate.side
+                          not in pallidum.side
+                          not in putamen.side
+                          not in Thalamus_Proper.side
+                          not in brainstem
+                          not in occipital.side
+                          not in temporal.side
+                          not in hemisphere.opposite)
+AF_parietotemporal.side = (endpoints_in((supramarginal.side 
+                                         or inferiorparietal.side)
+                                        not in posterior_of(supramarginal.side)) 
+                           and endpoints_in(superiortemporal.side 
+                                            or middletemporal.side 
+                                            or inferiortemporal.side) 
+                          and centrum_semiovale.side 
+                          not in superiorfrontal.side
+                          not in superiorparietal.side
+                          not in caudate.side
+                          not in pallidum.side
+                          not in putamen.side
+                          not in Thalamus_Proper.side
+                          not in brainstem
+                          not in insula.side
+                          not in occipital.side
+                          not in frontal.side
+                          not in cingulate.side
+                          not in hemisphere.opposite)
+
+AF.side = AF_frontotemporal.side or AF_frontoparietal.side or AF_parietotemporal.side
+
+
+########################
+### Optic Radiations ###
+########################
+OR.side = (endpoints_in(Thalamus_Proper.side)
+           and endpoints_in(pericalcarine.side 
+                            or cuneus.side 
+                            or lingual.side)
+           and lateral_of(Lateral_Ventricle.side)
+           not in anterior_of(Thalamus_Proper.side)
+           not in midbrain
+           not in amygdala.side
+           not in frontal.side
+           not in parietal.side           
+           not in cingulate.side       
+           not in hemisphere.opposite)
+
+
+#######################
+### Pyramidal Tract ###
+#######################
+PT_central.side |= (endpoints_in(medulla or inferior_of(medulla))
+                   and endpoints_in(precentral.side 
+                                    or postcentral.side 
+                                    or paracentral.side)
+                   not in posterior_of(precuneus.side)
+                   not in anterior_of(caudalmiddlefrontal.side)
+                   and midbrain        
+                   and medulla
+                   not in caudate.side
+                   not in pallidum.side
+                   not in putamen.side
+                   not in cingulate.side
+                   not in cerebellum.side
+                   not in occipital.side
+                   not in temporal.side   
+                   not in hemisphere.opposite)
+
+PT_ant.side |= (endpoints_in(medulla or inferior_of(medulla))
+               and endpoints_in(caudalmiddlefrontal.side 
+                                or superiorfrontal.side)
+               not in posterior_of(precuneus.side)
+               not in anterior_of(caudalmiddlefrontal.side)
+               and midbrain        
+               and medulla
+               not in caudate.side
+               not in pallidum.side
+               not in putamen.side
+               not in cingulate.side
+               not in cerebellum.side
+               not in occipital.side
+               not in temporal.side   
+               not in hemisphere.opposite)
+
+PT_post.side |= (endpoints_in(medulla or inferior_of(medulla))
+                and endpoints_in(superiorparietal.side
+                                 or precuneus.side)
+                not in posterior_of(precuneus.side)
+                not in anterior_of(caudalmiddlefrontal.side)
+                and midbrain        
+                and medulla
+                not in caudate.side
+                not in pallidum.side
+                not in putamen.side
+                not in cingulate.side
+                not in cerebellum.side
+                not in occipital.side
+                not in temporal.side   
+                not in hemisphere.opposite)
+
+PT_cingulate.side |= (endpoints_in(medulla or inferior_of(medulla))
+                     and endpoints_in(posteriorcingulate.side)
+                     and midbrain        
+                     and medulla
+                     not in caudate.side
+                     not in pallidum.side
+                     not in putamen.side
+                     not in (caudalanteriorcingulate.side                 
+                             or rostralanteriorcingulate.side
+                             or isthmuscingulate.side)
+                     not in cerebellum.side
+                     not in frontal.side
+                     not in occipital.side
+                     not in parietal.side
+                     not in temporal.side   
+                     not in hemisphere.opposite)
+
+PT.side = (PT_central.side or PT_ant.side or PT_post.side or PT_cingulate.side)
+
+
+################
+### Cingulum ###
+################
+Cg.side = ((rostralanteriorcingulate.side 
+            and caudalanteriorcingulate.side)
+           or (caudalanteriorcingulate.side 
+               and posteriorcingulate.side)
+           or (caudalanteriorcingulate.side 
+               and isthmuscingulate.side)
+           or (parahippocampal.side 
+               and isthmuscingulate.side)
+           or (parahippocampal.side 
+               and posteriorcingulate.side)
+           not in only(frontal.side or cingulate.side)
+           not in only(parietal.side or cingulate.side)
+           not in only(occipital.side or cingulate.side)
+           not in only(temporal.side or cingulate.side)
+           not in lateral_of(Hippocampus.side)
+           not in VentralDC.side
+           not in putamen.side
+           not in choroid_plexus.side
+           not in centrum_semiovale.side
+           not in pallidum.side
+           not in insula.side
+           not in brainstem
+           not in midCC
+           not in hemisphere.opposite)
+
+
+###########################
+### Uncinate fasciculus ###
+###########################
+UF.side = (endpoints_in((superiorfrontal.side
+                         or middlefrontal.side
+                         or inferiorfrontal.side
+                         or lateralorbitofrontal.side 
+                         or medialorbitofrontal.side)
+                        and anterior_of(caudalmiddlefrontal.side))
+           and endpoints_in(superiortemporal.side
+                            or middletemporal.side 
+                            or inferiortemporal.side
+                            or fusiform.side
+                            or temporalpole.side)
+           not in posterior_of(Amygdala.side)
+           not in cingulate.side
+           not in midCC
+           not in brainstem
+           not in Thalamus_Proper.side
+           not in Putamen.side
+           not in pallidum.side
+           not in hemisphere.opposite)
+
+
+#######################
+### Corpus Callosum ###
+#######################
+CC_bundle_ant = (endpoints_in(frontal.left or cingulate.left)
+                 and endpoints_in(frontal.right or cingulate.right)
+                 and CC_Anterior
+                 not in (parietal.left or parietal.right
+                         or temporal.left or temporal.right
+                         or occipital.left or occipital.right)
+                 not in brainstem
+                 not in (Thalamus_Proper.left or Thalamus_Proper.right)
+                 not in (Putamen.left or Putamen.right)
+                 not in (pallidum.left or pallidum.right)
+                 not in (caudate.left or caudate.right)
+                 not in (choroid_plexus.left or choroid_plexus.right)
+                 not in (VentralDC.left or VentralDC.right)
+                 not in posterior_of(CC_Central))
+
+CC_bundle_mid_ant = (endpoints_in(frontal.left or parietal.left or cingulate.left)
+                     and endpoints_in(frontal.right or parietal.right or cingulate.right)
+                     and CC_Mid_Anterior
+                     not in (temporal.left or temporal.right
+                             or occipital.left or occipital.right)
+                     not in brainstem
+                     not in (Thalamus_Proper.left or Thalamus_Proper.right)
+                     not in (Putamen.left or Putamen.right)
+                     not in (pallidum.left or pallidum.right)
+                     not in (caudate.left or caudate.right)
+                     not in (choroid_plexus.left or choroid_plexus.right)
+                     not in (VentralDC.left or VentralDC.right)
+                     not in posterior_of(CC_Central)
+                     not in anterior_of(CC_Anterior))
+
+CC_bundle_central = (endpoints_in(frontal.left or parietal.left or cingulate.left)
+                     and endpoints_in(frontal.right or parietal.right or cingulate.right)
+                     and CC_Central
+                     not in (temporal.left or temporal.right
+                             or occipital.left or occipital.right)
+                     not in brainstem
+                     not in (Thalamus_Proper.left or Thalamus_Proper.right)
+                     not in (Putamen.left or Putamen.right)
+                     not in (pallidum.left or pallidum.right)
+                     not in (caudate.left or caudate.right)
+                     not in (choroid_plexus.left or choroid_plexus.right)
+                     not in (VentralDC.left or VentralDC.right)
+                     not in posterior_of(CC_Posterior)
+                     not in anterior_of(CC_Anterior))
+
+CC_bundle_mid_post = (endpoints_in(frontal.left or parietal.left or occipital.left or temporal.left or cingulate.left)
+                      and endpoints_in(frontal.right or parietal.right or occipital.right or temporal.right or cingulate.right)
+                      and CC_Mid_Posterior
+                      not in brainstem
+                      not in (Thalamus_Proper.left or Thalamus_Proper.right)
+                      not in (Putamen.left or Putamen.right)
+                      not in (pallidum.left or pallidum.right)
+                      not in (caudate.left or caudate.right)
+                      not in (choroid_plexus.left or choroid_plexus.right)
+                      not in (VentralDC.left or VentralDC.right)
+                      not in anterior_of(CC_Anterior))
+
+CC_bundle_post = (endpoints_in(parietal.left or occipital.left or temporal.left or cingulate.left)
+                  and endpoints_in(parietal.right or occipital.right or temporal.right or cingulate.right)
+                  and CC_Posterior
+                  not in brainstem
+                  not in (Thalamus_Proper.left or Thalamus_Proper.right)
+                  not in (Putamen.left or Putamen.right)
+                  not in (pallidum.left or pallidum.right)
+                  not in (caudate.left or caudate.right)
+                  not in (choroid_plexus.left or choroid_plexus.right)
+                  not in (VentralDC.left or VentralDC.right)
+                  not in anterior_of(CC_Anterior))
+
+CC_bundle = CC_bundle_ant or CC_bundle_mid_ant or CC_bundle_central or CC_bundle_mid_post or CC_bundle_post
+
+
+##################################################
+### Inferior Fronto-Occipital Fasiculus (IFOF) ###
+##################################################
+IFOF.side = (endpoints_in((superiorfrontal.side
+                         or middlefrontal.side
+                         or inferiorfrontal.side
+                         or lateralorbitofrontal.side 
+                         or medialorbitofrontal.side)
+                        and anterior_of(caudalmiddlefrontal.side))
+             and endpoints_in(occipital.side)
+             and temporal.side
+             and (Insula.side or Putamen.side)
+             #not in (temporalpole.side or bankssts.side)
+             not in parietal.side
+             not in cingulate.side
+             not in midCC
+             not in Pallidum.side
+             not in brainstem
+             not in Thalamus_Proper.side
+             not in hemisphere.opposite)
+
+
+###############################
+### Anterior Commisure (AC) ###
+###############################
+AC = (endpoints_in(temporal.left or occipital.left)
+      and endpoints_in(temporal.right or occipital.right)
+      and (Pallidum.left or Putamen.left)
+      and (Pallidum.right or Putamen.right)
+      not in (Thalamus_Proper.left or Thalamus_Proper.right)
+      not in (choroid_plexus.left or choroid_plexus.right)
+      not in brainstem
+      not in (parietal.left or parietal.right)
+      not in midCC)
+
+                
+####################################
+### Cerebellar peduncles - Perso ###
+####################################
+
+CP_middle =  (endpoints_in(Cerebellum_White_Matter.right) 
+		and endpoints_in(Cerebellum_White_Matter.left)
+		and pons
+		not in fourth_Ventricle
+		not in midbrain
+		not in medulla)
+
+CP_superior.side = (endpoints_in(Cerebellum_White_Matter.side)
+			and endpoints_in(midbrain)
+			and cerebellarpedoncle
+			not in fourth_Ventricle
+			#not in pons
+			not in hemisphere.opposite)
+
+CP_inferior.side = (endpoints_in(Cerebellum_White_Matter.side)
+			and endpoints_in(medulla)
+			not in fourth_Ventricle
+			not in hemisphere.opposite)
+
+
+

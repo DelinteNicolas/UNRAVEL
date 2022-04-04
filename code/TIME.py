@@ -9,7 +9,6 @@ Created on Fri Mar 11 11:05:25 2022
 import os
 import numpy as np
 import nibabel as nib
-from dipy.io.image import load_nifti, save_nifti
 from dipy.io.streamline import load_tractogram
 
 def deltasToD(dx,dy,dz):
@@ -371,7 +370,7 @@ def tractToMFpop(trk_file:str,MF_dir:str,K:int=2,binary:bool=False,sNum:int=80):
     tList=[]
     for k in range(K):
         # !!!
-        img=nib.load(MF_dir+'_peak_f'+str(k)+'.nii.gz')
+        img=nib.load(MF_dir+'_mf_peak_f'+str(k)+'.nii.gz')
         t=img.get_fdata()
     
         # If finger peaks organised as ...
@@ -434,7 +433,8 @@ def tractToDIAMONDpop(trk_file:str,DIAMOND_dir:str,K:int=2,binary:bool=False,sNu
     return tractToFiberPop(trk, tList, binary,sNum)
     
     
-def tractToFiberPop(trk,tList:list,binary:bool=False,sNum:int=80):
+#def tractToFiberPop(trk,tList:list,binary:bool=False,sNum:int=80):
+def tractToFiberPop(trk,tList:list,binary:bool=False,sNum:int=0):
     '''
     
 
@@ -447,7 +447,7 @@ def tractToFiberPop(trk,tList:list,binary:bool=False,sNum:int=80):
     binary : bool, optional
         DESCRIPTION. The default is False.
     sNum : int, optional
-        DESCRIPTION. The default is 80.
+        Plots every sNum-th streamline. The default is 0.
 
     Returns
     -------
@@ -459,7 +459,9 @@ def tractToFiberPop(trk,tList:list,binary:bool=False,sNum:int=80):
         DESCRIPTION.
     TYPE
         DESCRIPTION.
-    outputVoxelStream : TYPE
+    outputVoxelStream : list
+        DESCRIPTION.
+    outputSegmentStream :list
         DESCRIPTION.
 
     '''
@@ -473,10 +475,12 @@ def tractToFiberPop(trk,tList:list,binary:bool=False,sNum:int=80):
     sList=tractToStreamlines(trk)
     
     outputVoxelStream=[]
+    outputSegmentStream=[]
     
     for h,streamline in enumerate(sList):
         
         voxelStream={}
+        segmentStream=[]
         
         #!!!
         previous_point=streamline[0,:]+.5
@@ -541,7 +545,13 @@ def tractToFiberPop(trk,tList:list,binary:bool=False,sNum:int=80):
                         ROI_quantity[x,y,z,k]+=voxList[(x,y,z)]*coef
                     phi_maps[(x,y,z)][1].append(voxList[(x,y,z)]*coefList[min_k])
     
-                if h%sNum==0:
+                if sNum!=0 and h%sNum==0:
+                    
+                    
+                    s=[]
+                    for coef in coefList:
+                        s.append(voxList[(x,y,z)]*coef)
+                    segmentStream.append([(x,y,z)]+s)
                     
                     if (x,y,z) not in voxelStream:
                         voxelStream[(x,y,z)]=[]
@@ -554,9 +564,10 @@ def tractToFiberPop(trk,tList:list,binary:bool=False,sNum:int=80):
     
             previous_point=point
             
-        if h%sNum==0:
+        if sNum!=0 and h%sNum==0:
             
             outputVoxelStream.append(voxelStream)
+            outputSegmentStream.append(segmentStream)
     
     ROI_select[ROI_quantity[:,:,:,0]>ROI_quantity[:,:,:,1]]=1
     ROI_select[ROI_quantity[:,:,:,0]<ROI_quantity[:,:,:,1]]=2
@@ -565,7 +576,7 @@ def tractToFiberPop(trk,tList:list,binary:bool=False,sNum:int=80):
     # t=MFpeakToDIAMONDpop(t10)
     # save_nifti(output_dir+'afToTensor.nii.gz', t,img.affine,img.header)
     
-    return ROI_select, ROI_quantity, phi_maps, len(sList), outputVoxelStream
+    return ROI_select, ROI_quantity, phi_maps, len(sList), outputVoxelStream, outputSegmentStream
 
 def tractToStreamlines(trk)->list:
     '''
@@ -595,13 +606,150 @@ def tractToStreamlines(trk)->list:
     
     return sList
 
-def plotStreamlineMetrics(voxelStreams:list,metric_maps:list):
+def plotStreamlineMetrics(streamList:list,metric_maps:list,groundTruth_map=None):
+    '''
+    Plots the evolution of a metric along the course of a single streamline
+
+    Parameters
+    ----------
+    streamList : list
+        DESCRIPTION.
+    metric_maps : list
+        DESCRIPTION.
+    groundTruth_map : array, optional
+        3D volume containing the ground truth map 
+
+    Returns
+    -------
+    None.
+
+    '''
+    
+    import matplotlib.pyplot as plt
+    
+    K=len(metric_maps)
+    
+    for i,stream in enumerate(streamList):
+            mList=[]
+            mcfoList=[]
+            mgtList=[]
+            vList=[]
+            qLists=[]
+            qTLists=[]
+            cfoLists=[]
+            
+            for k in range(K):
+                qLists.append([])
+                qTLists.append([])
+                cfoLists.append([])
+            
+            if type(stream) is dict:
+            
+                for voxel in stream:
+                    
+                    weight0=stream[voxel][0]
+                    weight1=stream[voxel][1]
+                    
+                    vList.append(str((voxel[0],voxel[2])))
+                    _appendWeights([weight0,weight1],qLists,qTLists)
+                    _appendCFOWeightsAndMetrics([weight0,weight1],cfoLists,mcfoList,voxel,metric_maps)
+                    
+                    mList.append((weight0*metric_maps[0][voxel]+
+                                 weight1*metric_maps[1][voxel])/
+                                 (weight0+weight1))
+                    
+                    if groundTruth_map is not None:
+                        mgtList.append(groundTruth_map[voxel])
+                
+            else:
+                
+                for s,segment in enumerate(stream):
+                    
+                    voxel=segment[0]
+                    weight0=segment[1]
+                    weight1=segment[2]
+                    
+                    vList.append(str(s)+str((voxel[0],voxel[2])))
+                    _appendWeights([weight0,weight1],qLists,qTLists)
+                    _appendCFOWeightsAndMetrics([weight0,weight1],cfoLists,mcfoList,voxel,metric_maps)
+                    
+                    mList.append((weight0*metric_maps[0][voxel]+
+                                 weight1*metric_maps[1][voxel])/
+                                 (weight0+weight1))
+                    
+                    if groundTruth_map is not None:
+                        mgtList.append(groundTruth_map[voxel])
+                
+            fig, axs = plt.subplots(4, 1)
+            bottom=[0]*len(cfoLists[0])
+            for k,cfoList in enumerate(cfoLists):
+                axs[0].bar(vList,cfoList,bottom=bottom,label='Pop '+str(k+1))
+                bottom=[sum(x) for x in zip(bottom, cfoList)]
+            axs[0].set_ylabel('Fixel weight \n (closest fixel only)')
+            bottom=[0]*len(qLists[0])
+            for k,qList in enumerate(qLists):
+                axs[1].bar(vList,qList,bottom=bottom,label='Pop '+str(k+1))
+                bottom=[sum(x) for x in zip(bottom, qList)]
+            axs[1].legend()
+            axs[1].set_ylabel('Fixel weight \n (angular weighting)')
+            bottom=[0]*len(qTLists[0])
+            for k,qTList in enumerate(qTLists):
+                axs[2].bar(vList,qTList,bottom=bottom,label='Pop '+str(k+1))
+                bottom=[sum(x) for x in zip(bottom, qTList)]
+            axs[2].legend()
+            axs[2].set_ylabel('Relative cont. \n (angular weighting)')
+            axs[3].plot(vList,mList,label='Angular weighting')
+            axs[3].plot(vList,mcfoList,label='Closest fixel only')
+            if groundTruth_map is not None:
+                axs[3].plot(vList,mgtList,label='Ground truth')
+            # if i==4:
+            #     #axs[2].plot(vList,[.5,.48,.48,.46,.44,.42,.42,.4,.38,.38,.38,.38,.36,.34,.34,.32,.32,.32,.3,.3],label='Ground thruth')
+            #     axs[2].plot(vList,[.88,.87,.87,.86,.85,.83,.83,.81,.80,.80,.80,.80,.78,.76,.76,.73,.73,.73,.71,.71],label='Ground thruth')
+            #axs[3].set_ylim([0.2,.8])
+            #axs[3].set_ylim([0.6,1])
+            axs[3].legend()
+            fig.suptitle(i)
+    
+def _appendWeights(weightList:list,qLists:list,qTLists:list):
     '''
     
 
     Parameters
     ----------
-    voxelStreams : list
+    weightList : list
+        DESCRIPTION.
+    qLists : list
+        DESCRIPTION.
+    qTLists : list
+        DESCRIPTION.
+
+    Returns
+    -------
+    None.
+
+    '''
+
+    total_weight=0
+    for k in range(len(weightList)):
+        qLists[k].append(weightList[k])
+        total_weight+=weightList[k]
+      
+    for k in range(len(weightList)):
+        qTLists[k].append(weightList[k]/total_weight)
+        
+def _appendCFOWeightsAndMetrics(weightList:list,cfoLists:list,mcfoList:list,voxel:tuple,metric_maps:list):
+    '''
+    
+
+    Parameters
+    ----------
+    weightList : list
+        DESCRIPTION.
+    cfoLists : list
+        DESCRIPTION.
+    mcfoList : list
+        DESCRIPTION.
+    voxel : tuple
         DESCRIPTION.
     metric_maps : list
         DESCRIPTION.
@@ -612,102 +760,17 @@ def plotStreamlineMetrics(voxelStreams:list,metric_maps:list):
 
     '''
     
-    import matplotlib.pyplot as plt
+    maxWeight=max(weightList)
+    m=weightList.index(maxWeight)
     
-    for i,voxelStream in enumerate(voxelStreams):
-            mList=[]
-            mcfoList=[]
-            vList=[]
-            qList0=[]
-            qList1=[]
-            cfoList0=[]
-            cfoList1=[]
-            qListT0=[]
-            qListT1=[]
-            
-            for voxel in voxelStream:
-                #vList.append(str(voxel))
-                vList.append(str((voxel[0],voxel[2])))
-                qList0.append(voxelStream[voxel][0])
-                qList1.append(voxelStream[voxel][1])
-                qListT0.append(voxelStream[voxel][0]/(voxelStream[voxel][0]+voxelStream[voxel][1]))
-                qListT1.append(voxelStream[voxel][1]/(voxelStream[voxel][0]+voxelStream[voxel][1]))
-                
-                if voxelStream[voxel][0]>voxelStream[voxel][1]:
-                    cfoList0.append(voxelStream[voxel][0]+voxelStream[voxel][1])
-                    cfoList1.append(0)
-                    
-                    mcfoList.append(metric_maps[0][voxel])
-                    
-                else:
-                    cfoList1.append(voxelStream[voxel][0]+voxelStream[voxel][1])
-                    cfoList0.append(0)
-                    
-                    mcfoList.append(metric_maps[1][voxel])
-                
-                mList.append((voxelStream[voxel][0]*metric_maps[0][voxel]+
-                             voxelStream[voxel][1]*metric_maps[1][voxel])/
-                             (voxelStream[voxel][0]+voxelStream[voxel][1]))
-                
-            fig, axs = plt.subplots(3, 1)
-            axs[0].bar(vList,qList0,label='Pop 1')
-            axs[0].bar(vList,qList1,bottom=qList0,label='Pop 2')
-            axs[0].legend()
-            axs[0].set_ylabel('Fixel weight \n (angular weighting)')
-            axs[1].bar(vList,cfoList0,label='Pop 1')
-            axs[1].bar(vList,cfoList1,bottom=cfoList0,label='Pop 2')
-            axs[1].set_ylabel('Fixel weight \n (closest fixel only)')
-            axs[2].plot(vList,mList,label='Angular weighting')
-            axs[2].plot(vList,mcfoList,label='Closest fixel only')
-            if i==4:
-                #axs[2].plot(vList,[.5,.48,.48,.46,.44,.42,.42,.4,.38,.38,.38,.38,.36,.34,.34,.32,.32,.32,.3,.3],label='Ground thruth')
-                axs[2].plot(vList,[.88,.87,.87,.86,.85,.83,.83,.81,.80,.80,.80,.80,.78,.76,.76,.73,.73,.73,.71,.71],label='Ground thruth')
-            #axs[2].set_ylim([0.2,.8])
-            axs[2].set_ylim([0.6,1])
-            axs[2].legend()
-            fig.suptitle(i)
+    total_weight=0
+    for k in range(len(weightList)):
+        total_weight+=weightList[k]
+        if k!=m:
+            cfoLists[k].append(0)
     
-
-def plotStreamlineDetails(voxelStreams:list):
-    '''
-    
-
-    Parameters
-    ----------
-    voxelStreams : list
-        DESCRIPTION.
-
-    Returns
-    -------
-    None.
-
-    '''
-      
-    import matplotlib.pyplot as plt
-    
-    for i,voxelStream in enumerate(voxelStreams):
-            vList=[]
-            qList0=[]
-            qList1=[]
-            qListT0=[]
-            qListT1=[]
-            
-            for voxel in voxelStream:
-                vList.append(str(voxel))
-                qList0.append(voxelStream[voxel][0])
-                qList1.append(voxelStream[voxel][1])
-                qListT0.append(voxelStream[voxel][0]/(voxelStream[voxel][0]+voxelStream[voxel][1]))
-                qListT1.append(voxelStream[voxel][1]/(voxelStream[voxel][0]+voxelStream[voxel][1]))
-                
-            fig, axs = plt.subplots(2, 1)
-            axs[0].bar(vList,qList0)
-            axs[0].bar(vList,qList1,bottom=qList0)
-            axs[1].bar(vList,qListT0,label='Pop 1')
-            axs[1].bar(vList,qListT1,bottom=qListT0,label='Pop 2')
-            axs[1].plot(qListT0,c='black')
-            axs[1].legend()
-            fig.suptitle(i)
-            
+    cfoLists[m].append(total_weight)
+    mcfoList.append(metric_maps[m][voxel])
 
 def streamlineCount(quantity_map)->int:
     '''
@@ -806,3 +869,16 @@ def tractToROI(trk_file:str):
         ROI[(int(b[i,0]+.5),int(b[i,1]+.5),int(b[i,2]+.5))]=1
         
     return ROI
+
+def getMicrostructureMap(trk_file:str,fixelWeights,metricMapList:list):
+
+    microMap=np.zeros(metricMapList[0].shape)  
+    total_weight=np.sum(fixelWeights,axis=3)
+
+    for k,metricMap in enumerate(metricMapList):
+        microMap+=metricMap*fixelWeights[:,:,:,k]
+    
+    microMap/=total_weight
+    microMap[np.isnan(microMap)]=0
+    
+    return microMap

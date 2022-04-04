@@ -336,7 +336,7 @@ def DIAMONDpopToMFpeak(t):
         
     return peaks
 
-def tractToMFpop(trk_file:str,MF_dir:str,K:int=2,binary:bool=False,sNum:int=80):
+def tractToMFpop(trk_file:str,MF_dir:str,Patient:str,K:int=2,binary:bool=False,sNum:int=0):
     '''
     
 
@@ -345,7 +345,9 @@ def tractToMFpop(trk_file:str,MF_dir:str,K:int=2,binary:bool=False,sNum:int=80):
     trk_file : str
         DESCRIPTION.
     MF_dir : str
-        DESCRIPTION.
+        Path to folder containing MF peak files.
+    Patient : str
+        Patient name in MF_dir folder
     K : int, optional
         DESCRIPTION. The default is 2.
     binary : bool, optional
@@ -370,7 +372,7 @@ def tractToMFpop(trk_file:str,MF_dir:str,K:int=2,binary:bool=False,sNum:int=80):
     tList=[]
     for k in range(K):
         # !!!
-        img=nib.load(MF_dir+'_mf_peak_f'+str(k)+'.nii.gz')
+        img=nib.load(MF_dir+Patient+'_mf_peak_f'+str(k)+'.nii.gz')
         t=img.get_fdata()
     
         # If finger peaks organised as ...
@@ -381,7 +383,7 @@ def tractToMFpop(trk_file:str,MF_dir:str,K:int=2,binary:bool=False,sNum:int=80):
     
     return tractToFiberPop(trk, tList, binary,sNum)
 
-def tractToDIAMONDpop(trk_file:str,DIAMOND_dir:str,K:int=2,binary:bool=False,sNum:int=80):
+def tractToDIAMONDpop(trk_file:str,DIAMOND_dir:str,Patient:str,K:int=2,binary:bool=False,sNum:int=0):
     '''
     
 
@@ -414,13 +416,13 @@ def tractToDIAMONDpop(trk_file:str,DIAMOND_dir:str,K:int=2,binary:bool=False,sNu
     
     tList=[]
     for k in range(K):
-        img=nib.load(DIAMOND_dir+'_diamond_t'+str(k)+'.nii.gz')
+        img=nib.load(DIAMOND_dir+Patient+'_diamond_t'+str(k)+'.nii.gz')
         t=img.get_fdata()
         
         # Removes tensor k where frac_k == 0
-        if os.path.isfile(DIAMOND_dir+'_diamond_fractions.nii.gz'):
+        if os.path.isfile(DIAMOND_dir+Patient+'_diamond_fractions.nii.gz'):
             
-            f=nib.load(DIAMOND_dir+'_diamond_fractions.nii.gz').get_fdata()
+            f=nib.load(DIAMOND_dir+Patient+'_diamond_fractions.nii.gz').get_fdata()
             
             ft=f[:,:,:,0,k]
             
@@ -451,9 +453,7 @@ def tractToFiberPop(trk,tList:list,binary:bool=False,sNum:int=0):
 
     Returns
     -------
-    ROI_select : TYPE
-        DESCRIPTION.
-    ROI_quantity : TYPE
+    fixelWeights : TYPE
         DESCRIPTION.
     phi_maps : TYPE
         DESCRIPTION.
@@ -469,8 +469,7 @@ def tractToFiberPop(trk,tList:list,binary:bool=False,sNum:int=0):
     phi_maps={}
     K = len(tList)
     #t10=np.zeros(tList[0].shape)
-    ROI_select=np.zeros(tList[0].shape[0:3]) 
-    ROI_quantity=np.zeros(tList[0].shape[0:3]+(K,))
+    fixelWeights=np.zeros(tList[0].shape[0:3]+(K,))
     
     sList=tractToStreamlines(trk)
     
@@ -515,7 +514,6 @@ def tractToFiberPop(trk,tList:list,binary:bool=False,sNum:int=0):
                     nList.append(all(v == 0 for v in v[1:]))
                 
                 if all(nList):       # If no tensor in voxel
-                    ROI_select[x,y,z]=3   
                     #t10[x,y,z,:]=np.zeros(3)
                     continue          
                 
@@ -535,14 +533,14 @@ def tractToFiberPop(trk,tList:list,binary:bool=False,sNum:int=0):
                 
                 if binary:
                     
-                    ROI_quantity[x,y,z,min_k]+=voxList[(x,y,z)]
+                    fixelWeights[x,y,z,min_k]+=voxList[(x,y,z)]
                     phi_maps[(x,y,z)][1].append(voxList[(x,y,z)])
                         
                 else:
                     
                     coefList=angularWeight(vs,vList,nList)
                     for k,coef in enumerate(coefList):
-                        ROI_quantity[x,y,z,k]+=voxList[(x,y,z)]*coef
+                        fixelWeights[x,y,z,k]+=voxList[(x,y,z)]*coef
                     phi_maps[(x,y,z)][1].append(voxList[(x,y,z)]*coefList[min_k])
     
                 if sNum!=0 and h%sNum==0:
@@ -568,15 +566,20 @@ def tractToFiberPop(trk,tList:list,binary:bool=False,sNum:int=0):
             
             outputVoxelStream.append(voxelStream)
             outputSegmentStream.append(segmentStream)
-    
-    ROI_select[ROI_quantity[:,:,:,0]>ROI_quantity[:,:,:,1]]=1
-    ROI_select[ROI_quantity[:,:,:,0]<ROI_quantity[:,:,:,1]]=2
         
     # img=nib.load(DIAMOND_dir+'_diamond_t0.nii.gz')
     # t=MFpeakToDIAMONDpop(t10)
     # save_nifti(output_dir+'afToTensor.nii.gz', t,img.affine,img.header)
     
-    return ROI_select, ROI_quantity, phi_maps, len(sList), outputVoxelStream, outputSegmentStream
+    return fixelWeights, phi_maps, len(sList), outputVoxelStream, outputSegmentStream
+
+def getMainFixel(fixelWeights):
+    
+    mainFixelMap=np.zeros(fixelWeights.shape[0:3]) 
+    mainFixelMap[fixelWeights[:,:,:,0]>fixelWeights[:,:,:,1]]=1
+    mainFixelMap[fixelWeights[:,:,:,0]<fixelWeights[:,:,:,1]]=2
+    
+    return mainFixelMap
 
 def tractToStreamlines(trk)->list:
     '''

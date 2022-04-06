@@ -12,7 +12,7 @@ import nibabel as nib
 from dipy.io.streamline import load_tractogram
 
 
-def deltasToD(dx, dy, dz):
+def deltas_to_D(dx, dy, dz):
 
     e = np.array([[dx, -dz-dy, dy*dx-dx*dz],
                   [dy, dx, -dx**2-(dz+dy)*dz],
@@ -30,15 +30,15 @@ def deltasToD(dx, dy, dz):
     return D
 
 
-def voxelDistance(position1: tuple, position2: tuple):
+def voxel_distance(position1: tuple, position2: tuple):
 
     dis = abs(np.floor(position1)-np.floor(position2))
 
     return dis
 
 
-def getVoxelsFromSegment(position1: tuple, position2: tuple,
-                         subparts: int = 10) -> dict:
+def voxels_from_segment(position1: tuple, position2: tuple,
+                        subparts: int = 10) -> dict:
     '''
 
 
@@ -58,7 +58,7 @@ def getVoxelsFromSegment(position1: tuple, position2: tuple,
 
     '''
 
-    voxDis = sum(voxelDistance(position1, position2))
+    voxDis = sum(voxel_distance(position1, position2))
 
     voxList = {}
 
@@ -80,7 +80,7 @@ def getVoxelsFromSegment(position1: tuple, position2: tuple,
 
 
 def compute_subsegments(start, finish, vox_size=[1, 1, 1], offset=[0, 0, 0],
-                        return_nodes=False):
+                        return_nodes: bool = False):
     '''
     Parameters
     ----------
@@ -202,7 +202,7 @@ def compute_subsegments(start, finish, vox_size=[1, 1, 1], offset=[0, 0, 0],
     return voxList
 
 
-def angleBetweenVectors(v1, v2):
+def angle_difference(v1, v2):
     v1n = v1/np.linalg.norm(v1)
     v2n = v2/np.linalg.norm(v2)
 
@@ -217,7 +217,7 @@ def angleBetweenVectors(v1, v2):
     return ang
 
 
-def angularWeight(vs, vList, nList):
+def angular_weighting(vs, vList, nList):
     '''
     Parameters
     ----------
@@ -242,7 +242,7 @@ def angularWeight(vs, vList, nList):
         if nList[i]:
             angle_diffList.append(0)
         else:
-            angle_diffList.append(angleBetweenVectors(vs, v))
+            angle_diffList.append(angle_difference(vs, v))
 
     sum_diff = np.sum(angle_diffList)
 
@@ -270,16 +270,31 @@ def t6ToMFpeak(t):
     new_t[:, :, :, 2] = new_t[:, :, :, 5]
     new_t = new_t[:, :, :, :3]
 
-    t1 = nib.load(
-        'C:/users/nicol/Documents/Doctorat/Data/Phantom/Diamond/LUCFRD_diamond_t0.nii.gz')
+    # t1 = nib.load(
+    #     'C:/users/nicol/Documents/Doctorat/Data/Phantom/Diamond/LUCFRD_diamond_t0.nii.gz')
 
-    out = nib.Nifti1Image(new_t, np.eye(4))  # ,t1.header)
-    out.to_filename('C:/users/nicol/Desktop/LUCFRD_peak_f.nii.gz')
+    # out = nib.Nifti1Image(new_t, np.eye(4))  # ,t1.header)
+    # out.to_filename('C:/users/nicol/Desktop/LUCFRD_peak_f.nii.gz')
 
     return new_t
 
 
-def MFpeakToDIAMONDpop(peaks):
+def peak_to_tensor(peaks):
+    '''
+    Takes peaks, such as the ones obtained with Microstructure Fingerprinting,
+    and return the corresponding tensor, in the format used in DIAMOND.
+
+    Parameters
+    ----------
+    peaks : TYPE
+        DESCRIPTION.
+
+    Returns
+    -------
+    t : TYPE
+        DESCRIPTION.
+
+    '''
 
     t = np.zeros(peaks.shape[:3]+(1, 6))
 
@@ -291,7 +306,7 @@ def MFpeakToDIAMONDpop(peaks):
         dx, dy, dz = peaks[xyz]
 
         try:
-            D = deltasToD(dx, dy, dz)
+            D = deltas_to_D(dx, dy, dz)
         except np.linalg.LinAlgError:
             continue
 
@@ -305,9 +320,11 @@ def MFpeakToDIAMONDpop(peaks):
     return t
 
 
-def DIAMONDpopToMFpeak(t):
+def tensor_to_peak(t):
     '''
-    Too slow for now
+    Takes peaks, such as the ones obtained with DIAMOND, and return the
+    corresponding tensor, in the format used in Microstructure Fingerprinting.
+    TODO : Speed up.
 
     Parameters
     ----------
@@ -350,10 +367,11 @@ def DIAMONDpopToMFpeak(t):
     return peaks
 
 
-def tractToMFpop(trk_file: str, MF_dir: str, Patient: str, K: int = 2,
-                 binary: bool = False, streamList: list = []):
+def get_fixel_weight_MF(trk_file: str, MF_dir: str, Patient: str, K: int = 2,
+                        binary: bool = False, streamList: list = []):
     '''
-
+    Get the fixel weights from a tract specified in trk_file and the peaks
+    obtained from Microsrcuture Fingerprinting.
 
     Parameters
     ----------
@@ -396,13 +414,15 @@ def tractToMFpop(trk_file: str, MF_dir: str, Patient: str, K: int = 2,
 
         tList.append(t)
 
-    return tractToFiberPop(trk, tList, binary, streamList)
+    return get_fixel_weight(trk, tList, binary, streamList)
 
 
-def tractToDIAMONDpop(trk_file: str, DIAMOND_dir: str, Patient: str,
-                      K: int = 2, binary: bool = False, streamList: list = []):
+def get_fixel_weight_DIAMOND(trk_file: str, DIAMOND_dir: str, Patient: str,
+                             K: int = 2, binary: bool = False,
+                             streamList: list = []):
     '''
-
+    Get the fixel weights from a tract specified in trk_file and the tensors
+    obtained from DIAMOND.
 
     Parameters
     ----------
@@ -446,16 +466,15 @@ def tractToDIAMONDpop(trk_file: str, DIAMOND_dir: str, Patient: str,
 
             t[ft == 0, :, :] = [[0, 0, 0, 0, 0, 0]]
 
-        tList.append(DIAMONDpopToMFpeak(t))
+        tList.append(tensor_to_peak(t))
 
-    # !!! Add filter to remove peaks where frac==0
+    # TODO: Add filter to remove peaks where frac==0
 
-    return tractToFiberPop(trk, tList, binary, streamList)
+    return get_fixel_weight(trk, tList, binary, streamList)
 
 
-# def tractToFiberPop(trk,tList:list,binary:bool=False,sNum:int=80):
-def tractToFiberPop(trk, tList: list, binary: bool = False,
-                    streamList: list = []):
+def get_fixel_weight(trk, tList: list, binary: bool = False,
+                     streamList: list = []):
     '''
 
 
@@ -491,7 +510,7 @@ def tractToFiberPop(trk, tList: list, binary: bool = False,
     # t10=np.zeros(tList[0].shape)
     fixelWeights = np.zeros(tList[0].shape[0:3]+(K,))
 
-    sList = tractToStreamlines(trk)
+    sList = tract_to_streamlines(trk)
 
     outputVoxelStream = []
     outputSegmentStream = []
@@ -512,7 +531,7 @@ def tractToFiberPop(trk, tList: list, binary: bool = False,
             point += .5    # Is correct I think
             # TODO: compare to edges of spatial domain
 
-            # voxList=getVoxelsFromSegment(point,previous_point)
+            # voxList=voxels_from_segment(point,previous_point)
             voxList = compute_subsegments(previous_point, point)
 
             vs = (point-previous_point)   # Tract deltas
@@ -545,7 +564,7 @@ def tractToFiberPop(trk, tList: list, binary: bool = False,
                     if nList[k]:
                         aList.append(1000)
                     else:
-                        aList.append(angleBetweenVectors(vs, v))
+                        aList.append(angle_difference(vs, v))
 
                 min_k = np.argmin(aList)
                 phi_maps[(x, y, z)][0].append(aList[min_k])
@@ -557,7 +576,7 @@ def tractToFiberPop(trk, tList: list, binary: bool = False,
 
                 else:
 
-                    coefList = angularWeight(vs, vList, nList)
+                    coefList = angular_weighting(vs, vList, nList)
                     for k, coef in enumerate(coefList):
                         fixelWeights[x, y, z, k] += voxList[(x, y, z)]*coef
                     phi_maps[(x, y, z)][1].append(
@@ -588,7 +607,7 @@ def tractToFiberPop(trk, tList: list, binary: bool = False,
             outputSegmentStream.append(segmentStream)
 
     # img=nib.load(DIAMOND_dir+'_diamond_t0.nii.gz')
-    # t=MFpeakToDIAMONDpop(t10)
+    # t=peak_to_tensor(t10)
     # save_nifti(output_dir+'afToTensor.nii.gz', t,img.affine,img.header)
 
     if streamList:
@@ -598,7 +617,7 @@ def tractToFiberPop(trk, tList: list, binary: bool = False,
         return (fixelWeights, phi_maps, len(sList))
 
 
-def getMainFixel(fixelWeights):
+def main_fixel_map(fixelWeights):
 
     mainFixelMap = np.zeros(fixelWeights.shape[0:3])
     mainFixelMap[fixelWeights[:, :, :, 0] > fixelWeights[:, :, :, 1]] = 1
@@ -607,9 +626,10 @@ def getMainFixel(fixelWeights):
     return mainFixelMap
 
 
-def tractToStreamlines(trk) -> list:
+def tract_to_streamlines(trk) -> list:
     '''
-
+    Return a list with the position of each step of each streamline from a
+    tractogram.
 
     Parameters
     ----------
@@ -636,8 +656,8 @@ def tractToStreamlines(trk) -> list:
     return sList
 
 
-def plotStreamlineMetrics(streamList: list, metric_maps: list,
-                          groundTruth_map=None):
+def plot_streamline_metrics(streamList: list, metric_maps: list,
+                            groundTruth_map=None):
     '''
     Plots the evolution of a metric along the course of a single streamline
 
@@ -682,8 +702,8 @@ def plotStreamlineMetrics(streamList: list, metric_maps: list,
                 weight1 = stream[voxel][1]
 
                 vList.append(str(voxel))
-                _appendWeights([weight0, weight1], qLists, qTLists)
-                _appendCFOWeightsAndMetrics(
+                _append_weights([weight0, weight1], qLists, qTLists)
+                _append_CFO_weights_metrics(
                     [weight0, weight1], cfoLists, mcfoList, voxel, metric_maps)
 
                 mList.append((weight0*metric_maps[0][voxel] +
@@ -702,8 +722,8 @@ def plotStreamlineMetrics(streamList: list, metric_maps: list,
                 weight1 = segment[2]
 
                 vList.append(str(s)+str((voxel[0], voxel[2])))
-                _appendWeights([weight0, weight1], qLists, qTLists)
-                _appendCFOWeightsAndMetrics(
+                _append_weights([weight0, weight1], qLists, qTLists)
+                _append_CFO_weights_metrics(
                     [weight0, weight1], cfoLists, mcfoList, voxel, metric_maps)
 
                 mList.append((weight0*metric_maps[0][voxel] +
@@ -735,16 +755,11 @@ def plotStreamlineMetrics(streamList: list, metric_maps: list,
         axs[3].plot(vList, mcfoList, label='Closest fixel only')
         if groundTruth_map is not None:
             axs[3].plot(vList, mgtList, label='Ground truth')
-        # if i==4:
-        #     #axs[2].plot(vList,[.5,.48,.48,.46,.44,.42,.42,.4,.38,.38,.38,.38,.36,.34,.34,.32,.32,.32,.3,.3],label='Ground thruth')
-        #     axs[2].plot(vList,[.88,.87,.87,.86,.85,.83,.83,.81,.80,.80,.80,.80,.78,.76,.76,.73,.73,.73,.71,.71],label='Ground thruth')
-        # axs[3].set_ylim([0.2,.8])
-        # axs[3].set_ylim([0.6,1])
         axs[3].legend()
         fig.suptitle(i)
 
 
-def _appendWeights(weightList: list, qLists: list, qTLists: list):
+def _append_weights(weightList: list, qLists: list, qTLists: list):
     '''
 
 
@@ -772,7 +787,7 @@ def _appendWeights(weightList: list, qLists: list, qTLists: list):
         qTLists[k].append(weightList[k]/total_weight)
 
 
-def _appendCFOWeightsAndMetrics(weightList: list, cfoLists: list,
+def _append_CFO_weights_metrics(weightList: list, cfoLists: list,
                                 mcfoList: list, voxel: tuple,
                                 metric_maps: list):
     '''
@@ -810,11 +825,11 @@ def _appendCFOWeightsAndMetrics(weightList: list, cfoLists: list,
     mcfoList.append(metric_maps[m][voxel])
 
 
-def streamlineCount(quantity_map) -> int:
+def total_segment_length(fixel_weights) -> int:
     '''
     Parameters
     ----------
-    quantity_map :  [x,y,z,k] volume containing the quantity of streamline
+    fixel_weights :  [x,y,z,k] volume containing the quantity of streamline
                     belonging to each population k
 
     Returns
@@ -823,16 +838,16 @@ def streamlineCount(quantity_map) -> int:
 
     '''
 
-    sc = np.sum(quantity_map, axis=3)
+    sc = np.sum(fixel_weights, axis=3)
 
     return sc
 
 
-def volumetricAgreement(quantity_map):
+def volumetric_agreement(fixel_weights):
     '''
     Parameters
     ----------
-    quantity_map :  [x,y,z,k] volume containing the quantity of streamline
+    fixel_weights :  [x,y,z,k] volume containing the quantity of streamline
                     belonging to each population k
 
     Returns
@@ -842,16 +857,16 @@ def volumetricAgreement(quantity_map):
 
     '''
 
-    index_max = np.amax(quantity_map, axis=3)
+    index_max = np.amax(fixel_weights, axis=3)
 
-    index = np.sum(index_max)/np.sum(quantity_map)
+    index = np.sum(index_max)/np.sum(fixel_weights)
 
-    index_map = index_max/np.sum(quantity_map, axis=3)
+    index_map = index_max/np.sum(fixel_weights, axis=3)
 
     return index, index_map
 
 
-def angularAgreement(phi_maps, volume_shape):
+def angular_agreement(phi_maps, volume_shape):
     '''
     Parameters
     ----------
@@ -882,7 +897,7 @@ def angularAgreement(phi_maps, volume_shape):
     return phi, phi_map
 
 
-def tractToROI(trk_file: str):
+def tract_to_ROI(trk_file: str):
     '''
 
 
@@ -914,9 +929,9 @@ def tractToROI(trk_file: str):
     return ROI
 
 
-def getMicrostructureMap(fixelWeights, metricMapList: list):
+def get_microstructure_map(fixelWeights, metricMapList: list):
     '''
-    Returns a 3D volume representing the microstructure map 
+    Returns a 3D volume representing the microstructure map
 
     Parameters
     ----------
@@ -943,7 +958,7 @@ def getMicrostructureMap(fixelWeights, metricMapList: list):
     return microMap
 
 
-def getWeightedSums(metricMapList: list, fixelWeightList: list):
+def get_weighted_sums(metricMapList: list, fixelWeightList: list):
     '''
 
 
@@ -981,8 +996,8 @@ def getWeightedSums(metricMapList: list, fixelWeightList: list):
     return weightedMetricSum, fixelWeightSum, M
 
 
-def weightedMeansAndDev(metricMapList: list, fixelWeightList: list,
-                        retainAllValues: bool = False):
+def weighted_mean_dev(metricMapList: list, fixelWeightList: list,
+                      retainAllValues: bool = False):
     '''
     Return the weighted means and standard deviation from list of metric maps
     and corresponding fixel weights.
@@ -1005,7 +1020,7 @@ def weightedMeansAndDev(metricMapList: list, fixelWeightList: list,
 
     K = len(metricMapList)
 
-    weightedMetricSum, fixelWeightSum, M = getWeightedSums(
+    weightedMetricSum, fixelWeightSum, M = get_weighted_sums(
         metricMapList, fixelWeightList)
     weightSum = np.sum(fixelWeightSum)
 

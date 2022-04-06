@@ -20,15 +20,15 @@ if __name__ == '__main__':
     MF_dir = 'data/'
     Patient = 'sampleSubject'
 
-    fixelWeights, _, _, voxelStreams, _ = TIME.tractToMFpop(
+    fixelWeights, _, _, voxelStreams, _ = TIME.get_fixel_weight_MF(
         trk_file, MF_dir, Patient, streamList=[0])
 
     metricMapList = [nib.load('data/sampleSubject_mf_fvf_f0.nii.gz').get_fdata(),
                      nib.load('data/sampleSubject_mf_fvf_f1.nii.gz').get_fdata()]
 
-    microMap = TIME.getMicrostructureMap(fixelWeights, metricMapList)
+    microMap = TIME.get_microstructure_map(fixelWeights, metricMapList)
 
-    weightedMean, weightedDev, _, [Min, Max] = TIME.weightedMeansAndDev(
+    weightedMean, weightedDev, _, [Min, Max] = TIME.weighted_mean_dev(
         metricMapList, [fixelWeights[:, :, :, 0], fixelWeights[:, :, :, 1]])
 
     # Printing means ----------------------------------------------------------
@@ -50,7 +50,7 @@ if __name__ == '__main__':
     tSL[totalSegmentLength > 0] = 1
 
     fig, axs = plt.subplots(1, 4)
-    axs[0].imshow(np.rot90(TIME.getMainFixel(
+    axs[0].imshow(np.rot90(TIME.main_fixel_map(
         fixelWeights)[:, 71, :]), cmap='gray')
     axs[0].set_title('Most aligned fixel')
     axs[1].imshow(np.rot90(totalSegmentLength[:, 71, :]),
@@ -63,4 +63,4 @@ if __name__ == '__main__':
     axs[3].imshow(np.rot90(microMap[:, 71, :]), cmap='gray')
     axs[3].set_title('Fiber volume fraction \n (axonal density) map')
 
-    TIME.plotStreamlineMetrics(voxelStreams, metricMapList)
+    TIME.plot_streamline_metrics(voxelStreams, metricMapList)

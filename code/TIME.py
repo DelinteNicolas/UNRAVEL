@@ -591,7 +591,7 @@ def tractToFiberPop(trk, tList: list, binary: bool = False,
     # t=MFpeakToDIAMONDpop(t10)
     # save_nifti(output_dir+'afToTensor.nii.gz', t,img.affine,img.header)
 
-    if len(streamList) > 0:
+    if streamList:
         return (fixelWeights, phi_maps, len(sList), outputVoxelStream,
                 outputSegmentStream)
     else:

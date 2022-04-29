@@ -9,3 +9,9 @@ The documentation of the code is available on [readthedocs](https://time.readthe
 ## Description
 
 This repository contains the code used to combine macroscopic tractography information with microscopic multi-fixel model estimates in order to improve the accuracy in the estimation of the microstructural properties of neural fibers in a specified tract.
+
+## Installing & importing
+Download a copy of this repository
+```
+> git clone https://github.com/DelinteNicolas/TIME.git
+```

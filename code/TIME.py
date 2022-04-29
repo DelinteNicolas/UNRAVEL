@@ -12,7 +12,36 @@ import nibabel as nib
 from dipy.io.streamline import load_tractogram
 
 
-def deltas_to_D(dx, dy, dz):
+def deltas_to_D(dx: float, dy: float, dz: float, lamb=np.diag([1, 0, 0]),
+                vec_len: float = 500):
+    '''
+    Function creating a diffusion tensor from three orthogonal components.
+
+    Parameters
+    ----------
+    dx : float
+        'x' component.
+    dy : float
+        'y' component.
+    dz : float
+        'z' component.
+    lamb : 3x3 array, optional
+        Diagonal matrix containing the diffusion eigenvalues. The default is
+        np.diag([1, 0, 0]).
+    vec_len : float, optional
+        Value decreasing the diffusion. The default is 500.
+
+    Raises
+    ------
+    np.linalg.LinAlgError
+        DESCRIPTION.
+
+    Returns
+    -------
+    D : 3x3 array
+        Matrix containing the diffusion tensor.
+
+    '''
 
     e = np.array([[dx, -dz-dy, dy*dx-dx*dz],
                   [dy, dx, -dx**2-(dz+dy)*dz],
@@ -23,14 +52,29 @@ def deltas_to_D(dx, dy, dz):
     except np.linalg.LinAlgError:
         raise np.linalg.LinAlgError
 
-    lamb = np.diag([1, 0, 0])           # Arbitrary
-
-    D = (e.dot(lamb)).dot(e_1)/500    # Change value to change vector length
+    D = (e.dot(lamb)).dot(e_1)/vec_len
 
     return D
 
 
-def voxel_distance(position1: tuple, position2: tuple):
+def voxel_distance(position1: tuple, position2: tuple) -> tuple:
+    '''
+    Returns the distance between two voxels in multiple dimensions.
+
+    Parameters
+    ----------
+    position1 : tuple
+        First position. Ex: (1,1,1).
+    position2 : tuple
+        Second position. Ex: (1,2,3).
+
+    Returns
+    -------
+    dis : tuple
+        tuple containing the distance between the two positions in every
+        direction. Ex: (0,1,2).
+
+    '''
 
     dis = abs(np.floor(position1)-np.floor(position2))
 
@@ -40,21 +84,23 @@ def voxel_distance(position1: tuple, position2: tuple):
 def voxels_from_segment(position1: tuple, position2: tuple,
                         subparts: int = 10) -> dict:
     '''
-
+    Computes the voxels containing a segment (defined by the position 1 and 2)
+    and the segment length that is contained within them.
 
     Parameters
     ----------
     position1 : tuple
-        DESCRIPTION.
+        Position. Ex: (1,1,1).
     position2 : tuple
-        DESCRIPTION.
+        Position. Ex: (1,2,3).
     subparts : int, optional
-        DESCRIPTION. The default is 10.
+        Divide segment into multiple subsegments. Higher value is more precise
+        but increases computation time. The default is 10.
 
     Returns
     -------
-    dict
-        DESCRIPTION.
+    voxList : dict
+        Dictionary of the voxels containing a part of the segment .
 
     '''
 
@@ -202,7 +248,24 @@ def compute_subsegments(start, finish, vox_size=[1, 1, 1], offset=[0, 0, 0],
     return voxList
 
 
-def angle_difference(v1, v2):
+def angle_difference(v1, v2) -> float:
+    '''
+    Computes the angle difference between two vectors.
+
+    Parameters
+    ----------
+    v1 : TYPE
+        Vector. Ex: [1,1,1]
+    v2 : TYPE
+        Vector. Ex: [1,1,1]
+
+    Returns
+    -------
+    ang : float
+        Angle difference (in degrees).
+
+    '''
+
     v1n = v1/np.linalg.norm(v1)
     v2n = v2/np.linalg.norm(v2)
 
@@ -217,16 +280,20 @@ def angle_difference(v1, v2):
     return ang
 
 
-def angular_weighting(vs, vList, nList):
+def angular_weighting(vs, vList: list, nList: list):
     '''
     Parameters
     ----------
     vs : segment vector
-    vList : list of the k vectors corresponding to each fiber population
+    vList : list
+        list of the k vectors corresponding to each fiber population
+    nList : list
+        list of the null k vectors
 
     Returns
     -------
-    ang_coef: list of the k coefficients
+    ang_coef : list
+        list of the k coefficients
 
     '''
 

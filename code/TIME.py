@@ -128,6 +128,9 @@ def voxels_from_segment(position1: tuple, position2: tuple,
 def compute_subsegments(start, finish, vox_size=[1, 1, 1], offset=[0, 0, 0],
                         return_nodes: bool = False):
     '''
+    Computes the voxels containing a segment (defined by the start and finish)
+    and the segment length that is contained within them.
+
     Parameters
     ----------
     start : 1-D array of shape (d,)
@@ -282,6 +285,9 @@ def angle_difference(v1, v2) -> float:
 
 def angular_weighting(vs, vList: list, nList: list):
     '''
+    Computes the relative contributions of the segments in vList to vs using
+    angular weighting.
+
     Parameters
     ----------
     vs : 1-D array
@@ -574,7 +580,7 @@ def get_fixel_weight_DIAMOND(trk_file: str, DIAMOND_dir: str, Patient: str,
 def get_fixel_weight(trk, tList: list, cfo: bool = False,
                      streamList: list = []):
     '''
-
+    Get the fixel weights from a tract specified in trk_file.
 
     Parameters
     ----------
@@ -721,7 +727,7 @@ def get_fixel_weight(trk, tList: list, cfo: bool = False,
 
 def main_fixel_map(fixelWeights):
     '''
-
+    Ouputs a map representing the most aligned fixel.
 
     Parameters
     ----------

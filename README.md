@@ -13,5 +13,9 @@ This repository contains the code used to combine macroscopic tractography infor
 ## Installing & importing
 Download a copy of this repository
 ```
-> git clone https://github.com/DelinteNicolas/TIME.git
+git clone https://github.com/DelinteNicolas/TIME.git
 ```
+
+## Example data and code
+
+An example use of the main methods and outputs of TIME is written in the `example.py` file.

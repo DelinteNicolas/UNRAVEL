@@ -1,5 +1,7 @@
 # TIME - Tractography Informed Multi-fascicle microstructure Estimation
 
+[logo.pdf](https://github.com/DelinteNicolas/TIME/files/8818700/logo.pdf)
+
 Welcome to the TIME's Github repository!
 
 [![Documentation Status](https://readthedocs.org/projects/time/badge/?version=latest)](https://time.readthedocs.io/en/latest/?badge=latest)

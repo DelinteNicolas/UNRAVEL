@@ -1,6 +1,8 @@
 # TIME - Tractography Informed Multi-fascicle microstructure Estimation
 
-![logo](https://user-images.githubusercontent.com/70629561/171500194-2f3afd6a-e0fe-4925-9aba-ba462091e5ff.png)
+<p align="center">
+  <img src="https://user-images.githubusercontent.com/70629561/171500194-2f3afd6a-e0fe-4925-9aba-ba462091e5ff.png" />
+</p>
 
 Welcome to the TIME's Github repository!
 
@@ -22,4 +24,6 @@ git clone https://github.com/DelinteNicolas/TIME.git
 
 An example use of the main methods and outputs of TIME is written in the `example.py` file. A tractogram of the middle anterior section of the corpus callosum is used as tractography input.
 
-![corpusTract](https://user-images.githubusercontent.com/70629561/169159877-ffbb9b99-ab99-451a-b6a1-24c0b1b5d124.gif)
+<p align="center">
+  <img src="https://user-images.githubusercontent.com/70629561/169159877-ffbb9b99-ab99-451a-b6a1-24c0b1b5d124.gif" />
+

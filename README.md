@@ -20,6 +20,28 @@ Download a copy of this repository
 git clone https://github.com/DelinteNicolas/TIME.git
 ```
 
+## Installing into your python environment
+For a more frequent use of the library, you may wish to permanently add the package to your current Python environment.
+
+Navigate to the folder where this repository was cloned or downloaded (the folder containing the ```setup.py``` file) and install the package as follows
+```
+cd TIME
+pip install .
+```
+
+If you have an existing install, and want to ensure package and dependencies are updated use --upgrade
+```
+pip install --upgrade .
+```
+(To uninstall :)
+```
+pip uninstall TIME
+```
+At the top of your Python scripts, import the library as
+```
+import TIME
+```
+
 ## Example data and code
 
 An example use of the main methods and outputs of TIME is written in the `example.py` file. A tractogram of the middle anterior section of the corpus callosum is used as tractography input.

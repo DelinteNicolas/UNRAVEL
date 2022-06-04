@@ -7,7 +7,7 @@ Created on Mon Apr  4 15:52:33 2022
 """
 
 import os
-import TIME
+import TIME.core as TIME
 import numpy as np
 import nibabel as nib
 import matplotlib.pyplot as plt

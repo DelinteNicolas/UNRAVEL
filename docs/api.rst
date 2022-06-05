@@ -1,7 +1,5 @@
 API
 =====================
-
-Welcome to the API. All functions are defined in details further down the page.
    
 Welcome to the API. The main packages and modules are available in the 'Quick access' below.
 
@@ -17,9 +15,20 @@ Quick access
    TIME
 
 TIME
+-------------------
+
+core
 ^^^^^^^^^^^^^^^^^^^
 
-.. automodule:: TIME
+.. automodule:: TIME.core
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+utils
+^^^^^^^^^^^^^^^^^^^
+
+.. automodule:: TIME.utils
    :members:
    :undoc-members:
    :show-inheritance:

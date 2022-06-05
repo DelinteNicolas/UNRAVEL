@@ -4,10 +4,12 @@ Created on Mon Apr  4 15:52:33 2022
 
 @author: Delinte Nicolas
 
+An example pyhton script using the main methods and outputs of TIME. A tractogram of the middle anterior section of the corpus callosum is used as tractography input.
+
 """
 
 import os
-import TIME
+import TIME.core as TIME
 import numpy as np
 import nibabel as nib
 import matplotlib.pyplot as plt

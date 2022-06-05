@@ -17,10 +17,16 @@ Quick access
 TIME
 -------------------
 
+core
+^^^^^^^^^^^^^^^^^^^
+
 .. automodule:: TIME.core
    :members:
    :undoc-members:
    :show-inheritance:
+
+utils
+^^^^^^^^^^^^^^^^^^^
 
 .. automodule:: TIME.utils
    :members:

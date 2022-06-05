@@ -22,7 +22,7 @@ TIME
    :undoc-members:
    :show-inheritance:
 
-.. automodule:: TIME.utils
+.. automodule:: utils
    :members:
    :undoc-members:
    :show-inheritance:

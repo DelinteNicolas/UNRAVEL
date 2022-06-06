@@ -353,7 +353,7 @@ def t6ToMFpeak(t):
     return new_t
 
 
-def peak_to_tensor(peaks):
+def peak_to_tensor(peaks, norm = None, pixdim=[2,2,2]):
     '''
     Takes peaks, such as the ones obtained with Microstructure Fingerprinting,
     and return the corresponding tensor, in the format used in DIAMOND.
@@ -371,6 +371,8 @@ def peak_to_tensor(peaks):
     '''
 
     t = np.zeros(peaks.shape[:3]+(1, 6))
+    
+    scaleFactor = 1000 / min(pixdim)
 
     for xyz in np.ndindex(peaks.shape[:3]):
 
@@ -380,7 +382,10 @@ def peak_to_tensor(peaks):
         dx, dy, dz = peaks[xyz]
 
         try:
-            D = deltas_to_D(dx, dy, dz)
+            if norm:
+                D = deltas_to_D(dx, dy, dz, vec_len=scaleFactor*norm[xyz])
+            else:
+                D = deltas_to_D(dx, dy, dz, vec_len=scaleFactor)
         except np.linalg.LinAlgError:
             continue
 

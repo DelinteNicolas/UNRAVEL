@@ -33,13 +33,15 @@ If you have an existing install, and want to ensure package and dependencies are
 ```
 pip install --upgrade .
 ```
-(To uninstall :)
-```
-pip uninstall TIME
-```
+
 At the top of your Python scripts, import the library as
 ```
 import TIME
+```
+
+### Uninstalling
+```
+pip uninstall TIME
 ```
 
 ## Example data and code

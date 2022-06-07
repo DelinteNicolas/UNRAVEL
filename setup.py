@@ -10,7 +10,7 @@ from setuptools import setup
 import TIME
 
 setup(
-    name='TIME',
+    name='TIME-python',
     version=TIME.__version__,
     description='Implementation of TIME',
     url='https://github.com/shuds13/pyexample',

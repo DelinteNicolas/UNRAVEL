@@ -15,15 +15,22 @@ The documentation of the code is available on [readthedocs](https://time.readthe
 This repository contains the code used to combine macroscopic tractography information with microscopic multi-fixel model estimates in order to improve the accuracy in the estimation of the microstructural properties of neural fibers in a specified tract.
 
 ## Installing & importing
-Download a copy of this repository
+
+### Online install
+
+The TIME package is available through ```pip install``` under the name ```TIME-python```. Note that the online version might not always be up to date with the latest changes.
+
+```
+pip install TIME-python
+```
+
+### Local install
+
+If you want to download the latest version directly from GitHub, you can clone this repository
 ```
 git clone https://github.com/DelinteNicolas/TIME.git
 ```
-
-### Installing into your python environment
-For a more frequent use of the library, you may wish to permanently add the package to your current Python environment.
-
-Navigate to the folder where this repository was cloned or downloaded (the folder containing the ```setup.py``` file) and install the package as follows
+For a more frequent use of the library, you may wish to permanently add the package to your current Python environment. Navigate to the folder where this repository was cloned or downloaded (the folder containing the ```setup.py``` file) and install the package as follows
 ```
 cd TIME
 pip install .
@@ -33,7 +40,7 @@ If you have an existing install, and want to ensure package and dependencies are
 ```
 pip install --upgrade .
 ```
-
+### Importing
 At the top of your Python scripts, import the library as
 ```
 import TIME
@@ -41,7 +48,7 @@ import TIME
 
 ### Uninstalling
 ```
-pip uninstall TIME
+pip uninstall TIME-python
 ```
 
 ## Example data and code

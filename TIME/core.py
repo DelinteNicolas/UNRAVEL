@@ -382,10 +382,10 @@ def peak_to_tensor(peaks, norm = None, pixdim=[2,2,2]):
         dx, dy, dz = peaks[xyz]
 
         try:
-            if norm:
-                D = deltas_to_D(dx, dy, dz, vec_len=scaleFactor*norm[xyz])
-            else:
+            if norm is None:
                 D = deltas_to_D(dx, dy, dz, vec_len=scaleFactor)
+            else:
+                D = deltas_to_D(dx, dy, dz, vec_len=scaleFactor*norm[xyz])
         except np.linalg.LinAlgError:
             continue
 

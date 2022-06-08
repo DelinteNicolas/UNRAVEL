@@ -41,7 +41,7 @@ def tract_to_ROI(trk_file: str):
     return ROI
 
 
-def peaksToRGB(peaksList: list, fracList: list = None, fvfList: list = None):
+def peaks_to_RGB(peaksList: list, fracList: list = None, fvfList: list = None):
     '''
     Returns a RGB map of shape (x,y,z,3) representing the main direction of
     of the peaks. Optionnaly scaled by fraction and/or fiber volume fraction.

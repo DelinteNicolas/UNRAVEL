@@ -27,6 +27,7 @@ def tract_to_ROI(trk_file: str):
 
     trk = load_tractogram(trk_file, 'same')
     trk.to_vox()
+    trk.to_corner()
 
     streams_data = trk.streamlines.get_data()
 
@@ -35,8 +36,7 @@ def tract_to_ROI(trk_file: str):
 
     for i in range(b.shape[0]):
 
-        # !!!
-        ROI[(int(b[i, 0]+.5), int(b[i, 1]+.5), int(b[i, 2]+.5))] = 1
+        ROI[(int(b[i, 0]), int(b[i, 1]), int(b[i, 2]))] = 1
 
     return ROI
 

@@ -168,11 +168,6 @@ def compute_subsegments(start, finish, vox_size=[1, 1, 1], offset=[0, 0, 0],
 
     tol_lam = 1e-10
 
-    # Extension of substep to move away from voxel boundaries and avoid
-    # numerical round-off errors. Chosen such that will never leave to a voxel
-    # crossing when starting from a boundary
-    step_ext = np.min(vox_size) * 0.01
-
     step = finish - start
     Lres = np.sqrt(np.sum(step**2))  # residual step length
     cur = start  # current node
@@ -353,7 +348,7 @@ def t6ToMFpeak(t):
     return new_t
 
 
-def peak_to_tensor(peaks, norm = None, pixdim=[2,2,2]):
+def peak_to_tensor(peaks, norm=None, pixdim=[2, 2, 2]):
     '''
     Takes peaks, such as the ones obtained with Microstructure Fingerprinting,
     and return the corresponding tensor, in the format used in DIAMOND.
@@ -371,7 +366,7 @@ def peak_to_tensor(peaks, norm = None, pixdim=[2,2,2]):
     '''
 
     t = np.zeros(peaks.shape[:3]+(1, 6))
-    
+
     scaleFactor = 1000 / min(pixdim)
 
     for xyz in np.ndindex(peaks.shape[:3]):
@@ -493,6 +488,7 @@ def get_fixel_weight_MF(trk_file: str, MF_dir: str, Patient: str, K: int = 2,
 
     trk = load_tractogram(trk_file, 'same')
     trk.to_vox()
+    trk.to_corner()
 
     # MF peaks --------------
 
@@ -557,6 +553,7 @@ def get_fixel_weight_DIAMOND(trk_file: str, DIAMOND_dir: str, Patient: str,
 
     trk = load_tractogram(trk_file, 'same')
     trk.to_vox()
+    trk.to_corner()
 
     # t0 & t1 ---------------
 
@@ -633,16 +630,11 @@ def get_fixel_weight(trk, tList: list, cfo: bool = False,
         voxelStream = {}
         segmentStream = []
 
-        #!!!
-        previous_point = streamline[0, :]+.5
+        previous_point = streamline[0, :]
 
         for i in range(1, streamline.shape[0]):
 
             point = streamline[i, :]
-
-            #!!!
-            point += .5    # Is correct I think
-            # TODO: compare to edges of spatial domain
 
             # voxList=voxels_from_segment(point,previous_point)
             voxList = compute_subsegments(previous_point, point)

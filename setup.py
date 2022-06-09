@@ -20,7 +20,7 @@ setup(
     description='Implementation of TIME',
     long_description=long_description,
     long_description_content_type='text/markdown',
-    url='https://github.com/shuds13/pyexample',
+    url='https://github.com/DelinteNicolas/TIME',
     author='Nicolas Delinte',
     author_email='nicolas.delinte@uclouvain.be',
     license='GNU General Public License v3.0',

@@ -65,6 +65,16 @@ def peaks_to_RGB(peaksList: list, fracList: list = None, fvfList: list = None):
 
     '''
 
+    # Safety net
+    if type(peaksList) != list:
+        if len(peaksList.shape) == 5:
+            peaksArray = peaksList.copy()
+            peaksList = []
+            for k in range(peaksArray.shape[4]):
+                peaksList.append(peaksArray[:, :, :, :, k])
+        else:
+            peaksList = [peaksList]
+
     K = len(peaksList)
 
     if fracList is None:

@@ -9,10 +9,17 @@ from setuptools import setup
 
 import TIME
 
+# read the contents of your README file
+from pathlib import Path
+this_directory = Path(__file__).parent
+long_description = (this_directory / "README.md").read_text()
+
 setup(
     name='TIME-python',
     version=TIME.__version__,
     description='Implementation of TIME',
+    long_description=long_description,
+    long_description_content_type='text/markdown',
     url='https://github.com/shuds13/pyexample',
     author='Nicolas Delinte',
     author_email='nicolas.delinte@uclouvain.be',

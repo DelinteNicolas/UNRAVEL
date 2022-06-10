@@ -24,6 +24,12 @@ The TIME package is available through ```pip install``` under the name ```TIME-p
 pip install TIME-python
 ```
 
+To install a specific version of the package use
+```
+pip install TIME-pyhton==0.0.4
+```
+The package follows the rules of [semantic versioning](https://semver.org/).
+
 ### Local install
 
 If you want to download the latest version directly from GitHub, you can clone this repository
@@ -45,6 +51,13 @@ At the top of your Python scripts, import the library as
 ```
 import TIME
 ```
+
+### Checking current version installed
+
+The version of the TIME package installed can be displayed by typing the following command in your python environment
+```
+TIME.__version__
+``` 
 
 ### Uninstalling
 ```

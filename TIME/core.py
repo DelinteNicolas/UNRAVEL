@@ -328,6 +328,55 @@ def angular_weighting(vs, vList: list, nList: list):
     return ang_coef
 
 
+def closest_fixel_only(vs, vList: list, nList: list):
+    '''
+    Computes the relative contributions of the segments in vList to vs using
+    closest fixel only approach.
+
+    Parameters
+    ----------
+    vs : 1-D array
+        Segment vector
+    vList : list
+        List of the k vectors corresponding to each fiber population
+    nList : list
+        List of the null k vectors
+
+    Returns
+    -------
+    ang_coef : list
+        List of the k coefficients
+
+    '''
+
+    if len(vList) == 1:
+        return [1]
+
+    if len(vList)-sum(nList) <= 1:
+        return [1-i for i in list(map(int, nList))]
+
+    angle_diffList = []
+
+    for k, v in enumerate(vList):
+        if nList[k]:
+            angle_diffList.append(1000)
+        else:
+            angle_diffList.append(angle_difference(vs, v))
+
+    ang_coef = []
+
+    min_k = np.argmin(angle_diffList)
+
+    for k, angle_diff in enumerate(angle_diffList):
+        if nList[k]:
+            ang_coef.append(0)
+        else:
+            if k == min_k:
+                ang_coef.append(1)
+
+    return ang_coef
+
+
 def t6ToMFpeak(t):
     '''
     (6,17,1,15) with info on 0,2,5 to (17,1,15,3)
@@ -664,6 +713,7 @@ def get_fixel_weight(trk, tList: list, cfo: bool = False,
                 if (x, y, z) not in phi_maps:       # Never been to this voxel
                     phi_maps[(x, y, z)] = [[], []]
 
+                # !!! Computed twice (also in angular_weighting/cfo)
                 aList = []    # angle list
                 for k, v in enumerate(vList):
                     if nList[k]:
@@ -675,17 +725,15 @@ def get_fixel_weight(trk, tList: list, cfo: bool = False,
                 phi_maps[(x, y, z)][0].append(aList[min_k])
 
                 if cfo:
-
-                    fixelWeights[x, y, z, min_k] += voxList[(x, y, z)]
-                    phi_maps[(x, y, z)][1].append(voxList[(x, y, z)])
+                    coefList = closest_fixel_only(vs, vList, nList)
 
                 else:
-
                     coefList = angular_weighting(vs, vList, nList)
-                    for k, coef in enumerate(coefList):
-                        fixelWeights[x, y, z, k] += voxList[(x, y, z)]*coef
-                    phi_maps[(x, y, z)][1].append(
-                        voxList[(x, y, z)]*coefList[min_k])
+
+                for k, coef in enumerate(coefList):
+                    fixelWeights[x, y, z, k] += voxList[(x, y, z)]*coef
+                phi_maps[(x, y, z)][1].append(
+                    voxList[(x, y, z)]*coefList[min_k])
 
                 if h in streamList:
 

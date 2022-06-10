@@ -26,7 +26,7 @@ pip install TIME-python
 
 To install a specific version of the package use
 ```
-pip install TIME-pyhton==0.0.4
+pip install TIME-python==0.0.4
 ```
 All available versions are listed in [PyPI](https://pypi.org/project/TIME-python/). The package names follow the rules of [semantic versioning](https://semver.org/).
 

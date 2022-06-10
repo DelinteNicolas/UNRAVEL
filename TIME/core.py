@@ -373,6 +373,8 @@ def closest_fixel_only(vs, vList: list, nList: list):
         else:
             if k == min_k:
                 ang_coef.append(1)
+            else:
+                ang_coef.append(0)
 
     return ang_coef
 

@@ -28,7 +28,7 @@ To install a specific version of the package use
 ```
 pip install TIME-pyhton==0.0.4
 ```
-The package follows the rules of [semantic versioning](https://semver.org/).
+All available versions are listed in [PyPI](https://pypi.org/project/TIME-python/). The package names follow the rules of [semantic versioning](https://semver.org/).
 
 ### Local install
 

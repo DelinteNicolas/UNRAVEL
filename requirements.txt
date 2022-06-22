@@ -1,6 +1,6 @@
 dipy==1.4.1
 matplotlib==3.4.3
 nibabel==3.2.1
-numpy==1.21.3
+numpy==1.22.0
 numpydoc==1.1.0
 scipy==1.7.3

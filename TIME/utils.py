@@ -94,3 +94,74 @@ def peaks_to_RGB(peaksList: list, fracList: list = None, fvfList: list = None):
             rgb[xyz] += abs(peaksList[k][xyz])*fracList[k][xyz]*fvfList[k][xyz]
 
     return rgb
+
+
+def tensor_to_DTI(t):
+    '''
+    Creates fractional anisotropy (FA), axial diffusivity (AD), radial
+    diffusivity (RD) and mean diffusivity (MD) maps from a tensor array.
+
+    Parameters
+    ----------
+    t : 5-D array
+        Tensor array of shape (x,y,z,1,6).
+
+    Returns
+    -------
+    FA : 3-D array
+        FA array of shape (x,y,z).
+    AD : 3-D array
+        AD array of shape (x,y,z).
+    RD : 3-D array
+        RD array of shape (x,y,z).
+    MD : 3-D array
+        MD array of shape (x,y,z).
+
+    '''
+
+    np.seterr(divide='ignore', invalid='ignore')
+
+    if len(t.shape) == 4:
+        t = t[..., np.newaxis]
+        t = np.transpose(t, (1, 2, 3, 4, 0))
+
+        mt = np.array([[t[:, :, :, 0, 0], t[:, :, :, 0, 1], t[:, :, :, 0, 2]],
+                      [t[:, :, :, 0, 1], t[:, :, :, 0, 3], t[:, :, :, 0, 4]],
+                      [t[:, :, :, 0, 2], t[:, :, :, 0, 4], t[:, :, :, 0, 5]]])
+
+    else:
+
+        mt = np.array([[t[:, :, :, 0, 0], t[:, :, :, 0, 1], t[:, :, :, 0, 3]],
+                      [t[:, :, :, 0, 1], t[:, :, :, 0, 2], t[:, :, :, 0, 4]],
+                      [t[:, :, :, 0, 3], t[:, :, :, 0, 4], t[:, :, :, 0, 5]]])
+
+    mt = np.transpose(mt, (2, 3, 4, 0, 1))
+    val, vec = np.linalg.eig(mt)
+
+    # Sorting to make sure that first dimension contains lambda_max
+    val = -np.sort(-val, axis=-1)
+
+    FA = np.sqrt((np.power((val[:, :, :, 0]-val[:, :, :, 1]), 2) +
+                  np.power((val[:, :, :, 1]-val[:, :, :, 2]), 2) +
+                  np.power((val[:, :, :, 2]-val[:, :, :, 0]), 2))
+                 / (2*(np.power(val[:, :, :, 0], 2) +
+                       np.power(val[:, :, :, 1], 2) +
+                       np.power(val[:, :, :, 2], 2))))
+
+    MD = (val[:, :, :, 0]+val[:, :, :, 1]+val[:, :, :, 2])/3
+
+    AD = val[:, :, :, 0]
+
+    RD = (val[:, :, :, 1]+val[:, :, :, 2])/2
+
+    for m in [FA, MD, RD, AD]:
+        m[np.isnan(m)] = 0
+
+    FA = FA.real.astype('float64')
+    AD = AD.real.astype('float64')
+    RD = RD.real.astype('float64')
+    MD = MD.real.astype('float64')
+
+    np.seterr(divide='warn', invalid='warn')
+
+    return FA, AD, RD, MD

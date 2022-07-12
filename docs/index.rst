@@ -13,6 +13,7 @@ The code is available at https://github.com/DelinteNicolas/TIME
 .. toctree::
    :caption: Getting Started
 
+   tutorials
    api
 
 Indices and tables

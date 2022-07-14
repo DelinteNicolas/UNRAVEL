@@ -6,12 +6,13 @@ This page contains a few tutorials explaining the usage of the main functions in
 Fixel weight maps
 -----------------
 
-Fixel weights maps can be obtained using the `get_fixel_weights <https://time.readthedocs.io/en/doc/api.html#TIME.core.get_fixel_weight>` function::
+Fixel weights maps can be obtained using the :meth:`TIME.core.get_fixel_weight` function::
 
-	get_fixel_weights()
+	get_fixel_weight()
 
 .. literalinclude:: ../TIME/example.py
     :linenos:
     :language: python
+    :lines: 11-
 
 .. note::  More tutorials will be added in the near future.

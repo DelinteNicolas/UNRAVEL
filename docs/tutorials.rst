@@ -20,11 +20,11 @@ Fixel weights maps can be obtained using the :meth:`TIME.core.get_fixel_weight` 
 Example
 ----------------
 
-A complete example code of the main function is available in the :class:`TIME.example` file.
+A complete example code of the main functions is available in the :class:`TIME.example` file.
 
 .. literalinclude:: ../TIME/example.py
     :linenos:
     :language: python
-    :lines: 11-
+    :lines: 13-
 
 .. note::  More tutorials will be added in the near future.

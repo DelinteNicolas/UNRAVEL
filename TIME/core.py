@@ -594,7 +594,7 @@ def get_fixel_weight_MF(trk_file: str, MF_dir: str, Patient: str, K: int = 2,
         tList.append(t)
 
     fList = []
-    if method == 'fraction_weight':
+    if method == 'vol':     # Relative volume fraction
 
         for k in range(K):
             # !!!
@@ -603,7 +603,7 @@ def get_fixel_weight_MF(trk_file: str, MF_dir: str, Patient: str, K: int = 2,
 
             fList.append(f)
 
-    return get_fixel_weight(trk, tList, method, streamList, fList)
+    return get_fixel_weight(trk, tList, method, streamList, fList, method=method)
 
 
 def get_fixel_weight_DIAMOND(trk_file: str, DIAMOND_dir: str, Patient: str,
@@ -676,7 +676,7 @@ def get_fixel_weight_DIAMOND(trk_file: str, DIAMOND_dir: str, Patient: str,
         tList.append(tensor_to_peak(t))
 
     fList = []
-    if method == 'fraction_weight':
+    if method == 'vol':     # Relative volume fraction
 
         for k in range(K):
 
@@ -684,7 +684,7 @@ def get_fixel_weight_DIAMOND(trk_file: str, DIAMOND_dir: str, Patient: str,
 
             fList.append(fk)
 
-    return get_fixel_weight(trk, tList, method, streamList, fList)
+    return get_fixel_weight(trk, tList, method, streamList, fList, method=method)
 
 
 def get_fixel_weight(trk, tList: list, method: str = 'angular_weight',
@@ -783,9 +783,9 @@ def get_fixel_weight(trk, tList: list, method: str = 'angular_weight',
                 min_k = np.argmin(aList)
                 phi_maps[(x, y, z)][0].append(aList[min_k])
 
-                if method == 'cfo':
+                if method == 'cfo':     # Closest-fixel-only
                     coefList = closest_fixel_only(vs, vList, nList)
-                elif method == 'fraction_weight':
+                elif method == 'vol':   # Relative volume fraction
                     if len(vList) != len(fList):
                         warnings.warn("Warning : The number of fixels (" +
                                       str(len(vList)) +
@@ -793,7 +793,7 @@ def get_fixel_weight(trk, tList: list, method: str = 'angular_weight',
                                       " of fractions given ("+str(len(fList))+").")
                     coefList = fraction_weighting(
                         (x, y, z), vList, nList, fList)
-                else:
+                else:   # Angular weighting
                     coefList = angular_weighting(vs, vList, nList)
 
                 for k, coef in enumerate(coefList):
@@ -1194,7 +1194,7 @@ def get_weighted_mean(microstructure_map, fixel_weights, weighting: str = 'tsl')
 
     tsl = total_segment_length(fixel_weights)
 
-    if weighting == 'vox':
+    if weighting == 'roi':
         weighted_map = np.zeros(tsl.shape)
         weighted_map[tsl != 0] = 1
     else:

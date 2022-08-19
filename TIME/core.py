@@ -603,7 +603,7 @@ def get_fixel_weight_MF(trk_file: str, MF_dir: str, Patient: str, K: int = 2,
 
             fList.append(f)
 
-    return get_fixel_weight(trk, tList, method, streamList, fList, method=method)
+    return get_fixel_weight(trk, tList, method, streamList, fList)
 
 
 def get_fixel_weight_DIAMOND(trk_file: str, DIAMOND_dir: str, Patient: str,
@@ -684,7 +684,7 @@ def get_fixel_weight_DIAMOND(trk_file: str, DIAMOND_dir: str, Patient: str,
 
             fList.append(fk)
 
-    return get_fixel_weight(trk, tList, method, streamList, fList, method=method)
+    return get_fixel_weight(trk, tList, method, streamList, fList)
 
 
 def get_fixel_weight(trk, tList: list, method: str = 'angular_weight',

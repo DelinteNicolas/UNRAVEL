@@ -11,7 +11,7 @@ from dipy.io.streamline import load_tractogram
 
 def tract_to_ROI(trk_file: str):
     '''
-
+    Returns a binary mask of each voxel containing a tractography node. The voxels containing streamlines segments but no nodes will not be selected.
 
     Parameters
     ----------

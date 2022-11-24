@@ -247,7 +247,7 @@ def compute_subsegments(start, finish, vox_size=[1, 1, 1], offset=[0, 0, 0],
     return voxList
 
 
-def angle_difference(v1, v2) -> float:
+def angle_difference(v1, v2, direction: bool = False) -> float:
     '''
     Computes the angle difference between two vectors.
 
@@ -257,6 +257,10 @@ def angle_difference(v1, v2) -> float:
         Vector. Ex: [1,1,1]
     v2 : 1-D array
         Vector. Ex: [1,1,1]
+    direction : bool, optional
+        If False, the vectors are considered to be direction-agnostic -> maximum angle difference = 90.
+        If True, the direction of the vectors is taken into account -> maximum angle difference = 180.
+        The default is False.
 
     Returns
     -------
@@ -270,10 +274,16 @@ def angle_difference(v1, v2) -> float:
 
     if (v1n == v2n).all():
         return 0
+      
+    if sum(v1n*v2n) > 1:
+        return 0
+
+    if sum(v1n*v2n) < -1:
+        return 180
 
     ang = np.arccos(sum(v1n*v2n))*180/np.pi
 
-    if ang > 90:
+    if ang > 90 and not direction:
         ang = 180-ang
 
     return ang

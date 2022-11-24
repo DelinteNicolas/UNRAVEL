@@ -11,7 +11,7 @@ from dipy.io.streamline import load_tractogram
 
 def tract_to_ROI(trk_file: str):
     '''
-
+    Returns a binary mask of each voxel containing a tractography node. The voxels containing streamlines segments but no nodes will not be selected.
 
     Parameters
     ----------
@@ -95,6 +95,57 @@ def peaks_to_RGB(peaksList: list, fracList: list = None, fvfList: list = None):
 
     return rgb
 
+def peaks_to_peak(peaksList: list, fixel_weights, fracList: list = None,
+                  fvfList: list = None):
+    '''
+    Fuse peaks into a single peak based on fixel weight and fvf, intensity
+    is then weighted with frac Mostly used for visualization purposes.
+
+    Parameters
+    ----------
+    peaksList : list of 4-D arrays
+        List of arrays containing the peaks of shape (x,y,z,3)
+    fixel_weights : 4-D array of shape (x,y,z,K)
+        Array containing the relative weights of the K fixels in each voxel.
+
+    Returns
+    -------
+    None.
+
+    '''
+
+    K = len(peaksList)
+
+    peak = np.zeros(peaksList[0].shape)
+
+    if fracList is None:
+        fracList = []
+        for k in range(K):
+            fracList.append(np.ones(peaksList[0].shape[:3]))/k
+
+    if fvfList is None:
+        fvfList = []
+        for k in range(K):
+            fvfList.append(np.ones(peaksList[0].shape[:3]))
+
+    fracTot = np.zeros(peaksList[0].shape[:3])
+
+    for xyz in np.ndindex(peaksList[0].shape[:3]):
+        for k in range(K):
+            peak[xyz] += abs(peaksList[k][xyz]) * \
+                fixel_weights[xyz+(k,)]/np.sum(fixel_weights[xyz]) * \
+                fvfList[k][xyz]
+
+    for k in range(K):
+        fracTot += fracList[k]
+
+    peak[..., 0] *= fracTot
+    peak[..., 1] *= fracTot
+    peak[..., 2] *= fracTot
+
+    # peak = np.where(np.isnan(peak), None, peak)
+
+    return peak
 
 def tensor_to_DTI(t):
     '''

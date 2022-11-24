@@ -7,6 +7,7 @@ Created on Fri Mar 11 11:05:25 2022
 """
 
 import os
+import warnings
 import numpy as np
 import nibabel as nib
 from dipy.io.streamline import load_tractogram
@@ -246,7 +247,7 @@ def compute_subsegments(start, finish, vox_size=[1, 1, 1], offset=[0, 0, 0],
     return voxList
 
 
-def angle_difference(v1, v2) -> float:
+def angle_difference(v1, v2, direction: bool = False) -> float:
     '''
     Computes the angle difference between two vectors.
 
@@ -256,6 +257,10 @@ def angle_difference(v1, v2) -> float:
         Vector. Ex: [1,1,1]
     v2 : 1-D array
         Vector. Ex: [1,1,1]
+    direction : bool, optional
+        If False, the vectors are considered to be direction-agnostic -> maximum angle difference = 90.
+        If True, the direction of the vectors is taken into account -> maximum angle difference = 180.
+        The default is False.
 
     Returns
     -------
@@ -269,10 +274,16 @@ def angle_difference(v1, v2) -> float:
 
     if (v1n == v2n).all():
         return 0
+      
+    if sum(v1n*v2n) > 1:
+        return 0
+
+    if sum(v1n*v2n) < -1:
+        return 180
 
     ang = np.arccos(sum(v1n*v2n))*180/np.pi
 
-    if ang > 90:
+    if ang > 90 and not direction:
         ang = 180-ang
 
     return ang
@@ -375,6 +386,43 @@ def closest_fixel_only(vs, vList: list, nList: list):
                 ang_coef.append(1)
             else:
                 ang_coef.append(0)
+
+    return ang_coef
+
+
+def fraction_weighting(point: tuple, vList: list, nList: list, fList: list):
+    '''
+
+
+    Parameters
+    ----------
+    point : tuple
+        x, y, z coordinates
+    vList : list
+        List of the k vectors corresponding to each fiber population
+    nList : list
+        List of the null k vectors
+
+    Returns
+    -------
+    ang_coef : list
+        List of the k coefficients
+
+    '''
+
+    if len(vList) == 1:
+        return [1]
+
+    if len(vList)-sum(nList) <= 1:
+        return [1-i for i in list(map(int, nList))]
+
+    ang_coef = []
+
+    for k, v in enumerate(vList):
+        if nList[k]:
+            ang_coef.append(0)
+        else:
+            ang_coef.append(fList[k][point])
 
     return ang_coef
 
@@ -495,7 +543,7 @@ def tensor_to_peak(t):
 
 
 def get_fixel_weight_MF(trk_file: str, MF_dir: str, Patient: str, K: int = 2,
-                        cfo: bool = False, streamList: list = []):
+                        method: str = 'angular_weight', streamList: list = []):
     '''
     Get the fixel weights from a tract specified in trk_file and the peaks
     obtained from Microsrcuture Fingerprinting.
@@ -555,11 +603,21 @@ def get_fixel_weight_MF(trk_file: str, MF_dir: str, Patient: str, K: int = 2,
 
         tList.append(t)
 
-    return get_fixel_weight(trk, tList, cfo, streamList)
+    fList = []
+    if method == 'vol':     # Relative volume fraction
+
+        for k in range(K):
+            # !!!
+            img = nib.load(MF_dir+Patient+'_mf_frac_f'+str(k)+'.nii.gz')
+            f = img.get_fdata()
+
+            fList.append(f)
+
+    return get_fixel_weight(trk, tList, method, streamList, fList)
 
 
 def get_fixel_weight_DIAMOND(trk_file: str, DIAMOND_dir: str, Patient: str,
-                             K: int = 2, cfo: bool = False,
+                             K: int = 2, method: str = 'angular_weight',
                              streamList: list = []):
     '''
     Get the fixel weights from a tract specified in trk_file and the tensors
@@ -608,6 +666,11 @@ def get_fixel_weight_DIAMOND(trk_file: str, DIAMOND_dir: str, Patient: str,
 
     # t0 & t1 ---------------
 
+    if os.path.isfile(DIAMOND_dir+Patient+'_diamond_fractions.nii.gz'):
+
+        f = nib.load(DIAMOND_dir+Patient +
+                     '_diamond_fractions.nii.gz').get_fdata()
+
     tList = []
     for k in range(K):
         img = nib.load(DIAMOND_dir+Patient+'_diamond_t'+str(k)+'.nii.gz')
@@ -616,22 +679,26 @@ def get_fixel_weight_DIAMOND(trk_file: str, DIAMOND_dir: str, Patient: str,
         # Removes tensor k where frac_k == 0
         if os.path.isfile(DIAMOND_dir+Patient+'_diamond_fractions.nii.gz'):
 
-            f = nib.load(DIAMOND_dir+Patient +
-                         '_diamond_fractions.nii.gz').get_fdata()
-
             ft = f[:, :, :, 0, k]
 
             t[ft == 0, :, :] = [[0, 0, 0, 0, 0, 0]]
 
         tList.append(tensor_to_peak(t))
 
-    # TODO: Add filter to remove peaks where frac==0
+    fList = []
+    if method == 'vol':     # Relative volume fraction
 
-    return get_fixel_weight(trk, tList, cfo, streamList)
+        for k in range(K):
+
+            fk = f[:, :, :, 0, k]
+
+            fList.append(fk)
+
+    return get_fixel_weight(trk, tList, method, streamList, fList)
 
 
-def get_fixel_weight(trk, tList: list, cfo: bool = False,
-                     streamList: list = []):
+def get_fixel_weight(trk, tList: list, method: str = 'angular_weight',
+                     streamList: list = [], fList: list = []):
     '''
     Get the fixel weights from a tract specified in trk_file.
 
@@ -726,10 +793,17 @@ def get_fixel_weight(trk, tList: list, cfo: bool = False,
                 min_k = np.argmin(aList)
                 phi_maps[(x, y, z)][0].append(aList[min_k])
 
-                if cfo:
+                if method == 'cfo':     # Closest-fixel-only
                     coefList = closest_fixel_only(vs, vList, nList)
-
-                else:
+                elif method == 'vol':   # Relative volume fraction
+                    if len(vList) != len(fList):
+                        warnings.warn("Warning : The number of fixels (" +
+                                      str(len(vList)) +
+                                      ") does not correspond to the number " +
+                                      " of fractions given ("+str(len(fList))+").")
+                    coefList = fraction_weighting(
+                        (x, y, z), vList, nList, fList)
+                else:   # Angular weighting
                     coefList = angular_weighting(vs, vList, nList)
 
                 for k, coef in enumerate(coefList):
@@ -994,25 +1068,6 @@ def _append_CFO_weights_metrics(weightList: list, cfoLists: list,
     mcfoList.append(metric_maps[m][voxel])
 
 
-def total_segment_length(fixel_weights):
-    '''
-    Parameters
-    ----------
-    fixel_weights : 4-D array of shape (x,y,z,K)
-        Array containing the relative weights of the K fixels in each voxel.
-
-    Returns
-    -------
-    sc : 3-D array of shape (x,y,z)
-        Array contains the total segment length in each voxel.
-
-    '''
-
-    sc = np.sum(fixel_weights, axis=3)
-
-    return sc
-
-
 def volumetric_agreement(fixel_weights):
     '''
     Parameters
@@ -1072,6 +1127,28 @@ def angular_agreement(phi_maps, volume_shape):
     return phi, phi_map
 
 
+def total_segment_length(fixel_weights):
+    '''
+    Parameters
+    ----------
+    fixel_weights : 4-D array of shape (x,y,z,K)
+        Array containing the relative weights of the K fixels in each voxel.
+
+    Returns
+    -------
+    sc : 3-D array of shape (x,y,z)
+        Array contains the total segment length in each voxel.
+
+    '''
+
+    if len(fixel_weights.shape) <= 3:
+        return fixel_weights
+
+    sc = np.sum(fixel_weights, axis=3)
+
+    return sc
+
+
 def get_microstructure_map(fixelWeights, metricMapList: list):
     '''
     Returns a 3D volume representing the microstructure map
@@ -1101,9 +1178,52 @@ def get_microstructure_map(fixelWeights, metricMapList: list):
     return microMap
 
 
+def get_weighted_mean(microstructure_map, fixel_weights, weighting: str = 'tsl'):
+    '''
+    Returns the mean value of a microstructure map using either a voxel or
+    total segment length (tsl) weighing method. Totals segment length
+    attributes more weight to voxels containing mulitple streamline segments.
+
+    Parameters
+    ----------
+    microstructure_map : 3-D array of shape (x,y,z)
+        Array containing the microstructure map
+    fixel_weights : 4-D array of shape (x,y,z,K)
+        Array containing the relative weights of the K fixels in each voxel.
+    weighting : str, optional
+        Weighting used for the mean. The default is 'tsl'.
+
+    Returns
+    -------
+    mean : float
+        Weighted mean.
+    dev : float
+        Weighted sum.
+
+    '''
+
+    tsl = total_segment_length(fixel_weights)
+
+    if weighting == 'roi':
+        weighted_map = np.zeros(tsl.shape)
+        weighted_map[tsl != 0] = 1
+    else:
+        weighted_map = tsl
+
+    mean = np.sum(microstructure_map*weighted_map)/np.sum(weighted_map)
+
+    M = np.count_nonzero(weighted_map)
+
+    dev = np.sqrt(np.sum(weighted_map*np.square(microstructure_map-mean)) /
+                  ((M-1)/M*np.sum(weighted_map)))
+
+    return mean, dev
+
+
 def get_weighted_sums(metricMapList: list, fixelWeightList: list):
     '''
     TODO: unify with get_microstructure_map and total_segment_length
+    Outdated.
 
     Parameters
     ----------
@@ -1140,10 +1260,11 @@ def get_weighted_sums(metricMapList: list, fixelWeightList: list):
 
 
 def weighted_mean_dev(metricMapList: list, fixelWeightList: list,
-                      retainAllValues: bool = False):
+                      retainAllValues: bool = False, weighting: str = 'tsl'):
     '''
     Return the weighted means and standard deviation from list of metric maps
     and corresponding fixel weights.
+    Outdated.
 
     Parameters
     ----------
@@ -1207,4 +1328,5 @@ def weighted_mean_dev(metricMapList: list, fixelWeightList: list,
 
     else:
 
+        return weightedMean, weightedDev, weightSum, [Min, Max]
         return weightedMean, weightedDev, weightSum, [Min, Max]

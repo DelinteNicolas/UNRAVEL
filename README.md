@@ -23,6 +23,7 @@ The TIME package is available through ```pip install``` under the name ```TIME-p
 ```
 pip install TIME-python
 ```
+To upgrade the current version : ```pip install TIME-python --upgrade```.
 
 To install a specific version of the package use
 ```

@@ -95,6 +95,7 @@ def peaks_to_RGB(peaksList: list, fracList: list = None, fvfList: list = None):
 
     return rgb
 
+
 def peaks_to_peak(peaksList: list, fixel_weights, fracList: list = None,
                   fvfList: list = None):
     '''
@@ -146,6 +147,7 @@ def peaks_to_peak(peaksList: list, fixel_weights, fracList: list = None,
     # peak = np.where(np.isnan(peak), None, peak)
 
     return peak
+
 
 def tensor_to_DTI(t):
     '''
@@ -216,3 +218,45 @@ def tensor_to_DTI(t):
     np.seterr(divide='warn', invalid='warn')
 
     return FA, AD, RD, MD
+
+
+def get_streamline_density(trk):
+    '''
+    Get the fixel weights from a tract specified in trk_file.
+
+    Parameters
+    ----------
+    trk : tractogram
+        Content of a .trk file
+
+    Returns
+    -------
+    density : 3-D array of shape (x,y,z)
+        Array containing the streamline density in each voxel.
+    '''
+
+    from TIME.core import tract_to_streamlines, compute_subsegments
+
+    density = np.zeros(trk._dimensions)
+
+    sList = tract_to_streamlines(trk)
+
+    for h, streamline in enumerate(sList):
+
+        previous_point = streamline[0, :]
+
+        for i in range(1, streamline.shape[0]):
+
+            point = streamline[i, :]
+
+            voxList = compute_subsegments(previous_point, point)
+
+            for x, y, z in voxList:
+
+                x, y, z = (int(x), int(y), int(z))
+
+                density[x, y, z] += voxList[(x, y, z)]
+
+            previous_point = point
+
+    return density

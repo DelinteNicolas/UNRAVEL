@@ -274,7 +274,7 @@ def angle_difference(v1, v2, direction: bool = False) -> float:
 
     if (v1n == v2n).all():
         return 0
-      
+
     if sum(v1n*v2n) > 1:
         return 0
 

@@ -77,6 +77,9 @@ def peaks_to_RGB(peaksList: list, fracList: list = None, fvfList: list = None):
 
     K = len(peaksList)
 
+    for k in range(K):
+        peaksList[k] = np.nan_to_num(peaksList[k])
+
     if fracList is None:
         fracList = []
         for k in range(K):
@@ -116,6 +119,9 @@ def peaks_to_peak(peaksList: list, fixel_weights, fracList: list = None,
     '''
 
     K = len(peaksList)
+
+    for k in range(K):
+        peaksList[k] = np.nan_to_num(peaksList[k])
 
     peak = np.zeros(peaksList[0].shape)
 

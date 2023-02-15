@@ -9,6 +9,7 @@ Welcome to the TIME's Github repository!
 [![Documentation Status](https://readthedocs.org/projects/time/badge/?version=latest)](https://time.readthedocs.io/en/latest/?badge=latest)
 [![PyPI](https://img.shields.io/pypi/v/TIME-python?label=pypi%20package)](https://pypi.org/project/TIME-python/)
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/TIME-python)](https://pypi.org/project/TIME-python/)
+![GitHub repo size](https://img.shields.io/github/repo-size/DelinteNicolas/TIME)
 
 The documentation of the code is available on [readthedocs](https://time.readthedocs.io/en/latest/)
 

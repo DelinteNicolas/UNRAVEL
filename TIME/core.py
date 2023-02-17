@@ -456,6 +456,8 @@ def peak_to_tensor(peaks, norm=None, pixdim=[2, 2, 2]):
     ----------
     peaks : 4-D array
         Array containing the peaks of shape (x,y,z,3)
+    norm : 3-D array
+        Array containing the normalization factor of shape (x,y,z), usually between [0,1].
 
     Returns
     -------
@@ -479,7 +481,7 @@ def peak_to_tensor(peaks, norm=None, pixdim=[2, 2, 2]):
             if norm is None:
                 D = deltas_to_D(dx, dy, dz, vec_len=scaleFactor)
             else:
-                D = deltas_to_D(dx, dy, dz, vec_len=scaleFactor*norm[xyz])
+                D = deltas_to_D(dx, dy, dz, vec_len=scaleFactor/norm[xyz])
         except np.linalg.LinAlgError:
             continue
 

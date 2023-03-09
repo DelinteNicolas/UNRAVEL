@@ -1,4 +1,4 @@
-# UNRAVEL - Tractography Informed Multi-fascicle microstructure Estimation
+# UNRAVEL - UtiliziNg tRActography to uncoVEr muLti-fixel microstructure
 
 <p align="center">
   <img src="https://user-images.githubusercontent.com/70629561/224088594-7bcbded3-9f68-4389-955b-6141569b3c06.png" width="600" />

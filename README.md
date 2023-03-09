@@ -1,15 +1,15 @@
-# TIME - Tractography Informed Multi-fascicle microstructure Estimation
+# UNRAVEL - Tractography Informed Multi-fascicle microstructure Estimation
 
 <p align="center">
   <img src="https://user-images.githubusercontent.com/70629561/172073125-b9535681-c5ae-4e05-a403-908e6f9f02ef.png" width="400" />
 </p>
 
-Welcome to the TIME's Github repository!
+Welcome to the UNRAVEL's Github repository!
 
 [![Documentation Status](https://readthedocs.org/projects/time/badge/?version=latest)](https://time.readthedocs.io/en/latest/?badge=latest)
 [![PyPI](https://img.shields.io/pypi/v/TIME-python?label=pypi%20package)](https://pypi.org/project/TIME-python/)
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/TIME-python)](https://pypi.org/project/TIME-python/)
-![GitHub repo size](https://img.shields.io/github/repo-size/DelinteNicolas/TIME)
+![GitHub repo size](https://img.shields.io/github/repo-size/DelinteNicolas/unravel)
 
 The documentation of the code is available on [readthedocs](https://time.readthedocs.io/en/latest/)
 
@@ -21,28 +21,28 @@ This repository contains the code used to combine macroscopic tractography infor
 
 ### Online install
 
-The TIME package is available through ```pip install``` under the name ```TIME-python```. Note that the online version might not always be up to date with the latest changes.
+The UNRAVEL package is available through ```pip install``` under the name ```unravel-python```. Note that the online version might not always be up to date with the latest changes.
 
 ```
-pip install TIME-python
+pip install unravel-python
 ```
-To upgrade the current version : ```pip install TIME-python --upgrade```.
+To upgrade the current version : ```pip install unravel-python --upgrade```.
 
 To install a specific version of the package use
 ```
-pip install TIME-python==0.0.4
+pip install unravel-python==1.0.0
 ```
-All available versions are listed in [PyPI](https://pypi.org/project/TIME-python/). The package names follow the rules of [semantic versioning](https://semver.org/).
+All available versions are listed in [PyPI](https://pypi.org/project/unravel-python/). The package names follow the rules of [semantic versioning](https://semver.org/).
 
 ### Local install
 
 If you want to download the latest version directly from GitHub, you can clone this repository
 ```
-git clone https://github.com/DelinteNicolas/TIME.git
+git clone https://github.com/DelinteNicolas/unravel.git
 ```
 For a more frequent use of the library, you may wish to permanently add the package to your current Python environment. Navigate to the folder where this repository was cloned or downloaded (the folder containing the ```setup.py``` file) and install the package as follows
 ```
-cd TIME
+cd unravel
 pip install .
 ```
 
@@ -53,24 +53,24 @@ pip install --upgrade .
 ### Importing
 At the top of your Python scripts, import the library as
 ```
-import TIME
+import unravel
 ```
 
 ### Checking current version installed
 
-The version of the TIME package installed can be displayed by typing the following command in your python environment
+The version of the UNRAVEL package installed can be displayed by typing the following command in your python environment
 ```
-TIME.__version__
+unravel.__version__
 ``` 
 
 ### Uninstalling
 ```
-pip uninstall TIME-python
+pip uninstall unravel-python
 ```
 
 ## Example data and code
 
-An example use of the main methods and outputs of TIME is written in the `example.py` file. A tractogram of the middle anterior section of the corpus callosum is used as tractography input.
+An example use of the main methods and outputs of UNRAVEL is written in the `example.py` file. A tractogram of the middle anterior section of the corpus callosum is used as tractography input.
 
 <p align="center">
   <img src="https://user-images.githubusercontent.com/70629561/169159877-ffbb9b99-ab99-451a-b6a1-24c0b1b5d124.gif" />

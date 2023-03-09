@@ -7,7 +7,7 @@ Created on Sat Jun  4 21:19:22 2022
 
 from setuptools import setup
 
-import TIME
+import unravel
 
 # read the contents of your README file
 from pathlib import Path
@@ -15,16 +15,16 @@ this_directory = Path(__file__).parent
 long_description = (this_directory / "README.md").read_text()
 
 setup(
-    name='TIME-python',
-    version=TIME.__version__,
-    description='Implementation of TIME',
+    name='unravel-python',
+    version=unravel.__version__,
+    description='Implementation of UNRAVEL',
     long_description=long_description,
     long_description_content_type='text/markdown',
-    url='https://github.com/DelinteNicolas/TIME',
+    url='https://github.com/DelinteNicolas/unravel',
     author='Nicolas Delinte',
     author_email='nicolas.delinte@uclouvain.be',
     license='GNU General Public License v3.0',
-    packages=['TIME'],
+    packages=['unravel'],
     install_requires=['dipy',
                       'nibabel',
                       'numpy',

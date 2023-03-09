@@ -4,7 +4,7 @@ Created on Mon Apr  4 15:52:33 2022
 
 @author: Delinte Nicolas
 
-An example pyhton script using the main methods and outputs of TIME. A
+An example pyhton script using the main methods and outputs of UNRAVEL. A
 tractogram of the middle anterior section of the corpus callosum is used as
 tractography input.
 
@@ -14,7 +14,7 @@ import os
 import numpy as np
 import nibabel as nib
 import matplotlib.pyplot as plt
-from TIME.core import *
+from unravel.core import *
 
 if __name__ == '__main__':
 

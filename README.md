@@ -15,6 +15,13 @@ The documentation of the code is available on [readthedocs](https://time.readthe
 
 ## Description
 
+To *unravel* has two meanings :
+
+* to disentangle the fibers of
+* to resolve the intricacy, complexity, or obscurity of
+
+With the UNRAVEL framework, we utilize tractography to unravel the microstructure of multi-fixel models. 
+
 This repository contains the code used to combine macroscopic tractography information with microscopic multi-fixel model estimates in order to improve the accuracy in the estimation of the microstructural properties of neural fibers in a specified tract.
 
 ## Installing & importing

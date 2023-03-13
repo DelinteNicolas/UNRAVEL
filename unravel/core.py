@@ -351,7 +351,7 @@ def closest_fixel_only(vs, vList: list, nList: list):
     vList : list
         List of the k vectors corresponding to each fiber population
     nList : list
-        List of the null k vectors
+        List of the null k vectors.
 
     Returns
     -------
@@ -397,11 +397,13 @@ def fraction_weighting(point: tuple, vList: list, nList: list, fList: list):
     Parameters
     ----------
     point : tuple
-        x, y, z coordinates
+        x, y, z coordinates.
     vList : list
-        List of the k vectors corresponding to each fiber population
+        List of the k vectors corresponding to each fiber population.
     nList : list
-        List of the null k vectors
+        List of the null k vectors.
+    fList : list
+        List of fractions volumes.
 
     Returns
     -------
@@ -771,7 +773,7 @@ def get_fixel_weight(trk, tList: list, method: str = 'ang',
                 vList = []
                 nList = []    # Null list, boolean
 
-                for t in tList:
+                for k, t in enumerate(tList):
 
                     v = t[x, y, z, :]
                     vList.append(v)
@@ -779,6 +781,10 @@ def get_fixel_weight(trk, tList: list, method: str = 'ang',
                     # Fingerprint : null vector = [0,0,0]
                     # Diamond : null vector = [1,0,0]
                     nList.append(all(v == 0 for v in v[1:]))
+
+                if len(fList) > 0:    # If fractions available and ==0
+                    if fList[k][x, y, z] == 0:
+                        nList[k] = True
 
                 if all(nList):       # If no tensor in voxel
                     # t10[x,y,z,:]=np.zeros(3)
@@ -905,7 +911,7 @@ def tract_to_streamlines(trk) -> list:
     return sList
 
 
-def get_streamline_metrics(trk, tList: list,
+def get_streamline_weights(trk, tList: list,
                            method_list: list = ['vol', 'cfo', 'ang'],
                            streamline_number: int = 0, fList: list = []):
     '''
@@ -967,7 +973,7 @@ def get_streamline_metrics(trk, tList: list,
             vList = []
             nList = []    # Null list, boolean
 
-            for t in tList:
+            for k, t in enumerate(tList):
 
                 v = t[x, y, z, :]
                 vList.append(v)
@@ -975,6 +981,10 @@ def get_streamline_metrics(trk, tList: list,
                 # Fingerprint : null vector = [0,0,0]
                 # Diamond : null vector = [1,0,0]
                 nList.append(all(v == 0 for v in v[1:]))
+
+                if len(fList) > 0:    # If fractions available and ==0
+                    if fList[k][x, y, z] == 0:
+                        nList[k] = True
 
             if all(nList):       # If no tensor in voxel
                 continue
@@ -1028,7 +1038,7 @@ def plot_streamline_metrics(trk, tList: list, metric_maps: list,
                             segment_wise: bool = True, groundTruth_map=None,
                             barplot: bool = True):
 
-    voxel_s, segment_s = get_streamline_metrics(trk, tList,
+    voxel_s, segment_s = get_streamline_weights(trk, tList,
                                                 method_list=method_list,
                                                 streamline_number=streamline_number,
                                                 fList=fList)

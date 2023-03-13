@@ -226,7 +226,7 @@ def tensor_to_DTI(t):
     return FA, AD, RD, MD
 
 
-def get_streamline_density(trk):
+def get_streamline_density(trk, resolution_increase: int = 1):
     '''
     Get the fixel weights from a tract specified in trk_file.
 
@@ -234,6 +234,9 @@ def get_streamline_density(trk):
     ----------
     trk : tractogram
         Content of a .trk file
+    resolution_increase : int, optional
+        Factor multuplying the resolution/dimensions of output array. The
+        default is 1.
 
     Returns
     -------
@@ -242,18 +245,19 @@ def get_streamline_density(trk):
     '''
 
     from TIME.core import tract_to_streamlines, compute_subsegments
+    from tqdm import tqdm
 
-    density = np.zeros(trk._dimensions)
+    density = np.zeros(trk._dimensions*resolution_increase)
 
     sList = tract_to_streamlines(trk)
 
-    for h, streamline in enumerate(sList):
+    for streamline in tqdm(sList):
 
-        previous_point = streamline[0, :]
+        previous_point = streamline[0, :]*resolution_increase
 
         for i in range(1, streamline.shape[0]):
 
-            point = streamline[i, :]
+            point = streamline[i, :]*resolution_increase
 
             voxList = compute_subsegments(previous_point, point)
 
@@ -266,3 +270,123 @@ def get_streamline_density(trk):
             previous_point = point
 
     return density
+
+
+def plot_streamline_trajectory(trk, resolution_increase: int = 1,
+                               streamline_number: int = 0, axis: int = 1):
+    '''
+    Produces a grpah of the streamline density of tract 'trk', the streamline
+    specified with 'streamline_number' is highlighted along 'axis'.
+
+    Parameters
+    ----------
+    trk : tractogram
+        Content of a .trk file.
+    resolution_increase : int, optional
+        The dimensions of the volume are multiplied by this value to increase
+        resolution. The default is 1.
+    streamline_number : int, optional
+        Number of the streamline to be highlighted. The default is 0.
+    axis : int, optional
+        Axis of inspection, [0:2] in 3D volumes. The default is 1.
+
+    Returns
+    -------
+    None.
+
+    '''
+
+    import matplotlib.pyplot as plt
+    from TIME.core import tract_to_streamlines, compute_subsegments
+
+    density = get_streamline_density(trk,
+                                     resolution_increase=resolution_increase)
+
+    sList = tract_to_streamlines(trk)
+
+    streamline = sList[streamline_number]
+
+    x = []
+    y = []
+    z = []
+
+    for i in range(0, streamline.shape[0]):
+
+        point = streamline[i, :]*resolution_increase
+
+        x.append(point[0])
+        y.append(point[1])
+        z.append(point[2])
+
+    plt.figure()
+    if axis == 0:
+        plt.imshow(density[int(sum(x)/len(x)), :, :].T,
+                   origin='lower', cmap='gray')
+        plt.plot(y, z, '.-', c='#e69402ff')
+    elif axis == 1:
+        plt.imshow(density[:, int(sum(y)/len(y)), :].T,
+                   origin='lower', cmap='gray')
+        plt.plot(x, z, '.-', c='#e69402ff')
+    else:
+        plt.imshow(density[:, :, int(sum(z)/len(z))].T,
+                   origin='lower', cmap='gray')
+        plt.plot(x, y, '.-', c='#e69402ff')
+
+
+if __name__ == '__main__':
+
+    import nibabel as nib
+
+    root = 'C:/Users/nicol/Documents/Doctorat/Data/Phantom/'
+
+    trk_file = root+'Tracking/LUCFRD.trk'
+    trk = load_tractogram(trk_file, 'same')
+    trk.to_vox()
+    trk.to_corner()
+
+    # 24000
+    streamline_number = 24000
+
+    plot_streamline_trajectory(trk, resolution_increase=1,
+                               streamline_number=streamline_number, axis=1)
+
+    dia_dir = root+'Diamond2/'
+    patient = 'LUCFRD'
+    i1 = nib.load(dia_dir+patient+'_diamond_t0.nii.gz').get_fdata()
+    i2 = nib.load(dia_dir+patient+'_diamond_t1.nii.gz').get_fdata()
+    tList = [tensor_to_peak(i1), tensor_to_peak(i2)]
+
+    f = nib.load(dia_dir+patient+'_diamond_fractions.nii.gz').get_fdata()
+    fList = [f[:, :, :, 0, 0], f[:, :, :, 0, 1]]
+
+    # voxelStream, segmentStream = get_streamline_metrics(trk, tList,
+    #                                                     method_list=[
+    #                                                         'vol', 'cfo', 'ang'],
+    #                                                     streamline_number=streamline_number, fList=fList)
+
+    i1 = nib.load(dia_dir+patient+'_diamond_FA_t0.nii.gz').get_fdata()
+    i2 = nib.load(dia_dir+patient+'_diamond_FA_t1.nii.gz').get_fdata()
+    metric_maps = [i1, i2]
+
+    gt = nib.load(root+'DKI/LUCFRD_sep_3_FA.nii.gz')
+    gt_map = gt.get_fdata()
+
+    trk_file = root+'Tracts/LUCFRD_R.trk'
+    trk = load_tractogram(trk_file, 'same')
+    trk.to_vox()
+    trk.to_corner()
+
+    streamline_number = 40
+    for n in range(0, 500, 10):
+        plot_streamline_metrics(trk, tList, metric_maps,
+                                method_list=['vol', 'cfo', 'ang'],
+                                streamline_number=n, fList=fList,
+                                segment_wise=False, groundTruth_map=gt_map)
+
+    voxelStream, segmentStream = get_streamline_metrics(trk, tList,
+                                                        method_list=[
+                                                            'vol', 'cfo', 'ang'],
+                                                        streamline_number=streamline_number, fList=fList)
+
+    plot_streamline_trajectory(trk, resolution_increase=1,
+                               streamline_number=streamline_number, axis=1)

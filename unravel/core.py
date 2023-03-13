@@ -1037,6 +1037,43 @@ def plot_streamline_metrics(trk, tList: list, metric_maps: list,
                             streamline_number: int = 0, fList: list = [],
                             segment_wise: bool = True, groundTruth_map=None,
                             barplot: bool = True):
+    '''
+    Plots the evolution of a metric along the course of a single streamline.
+
+
+    Parameters
+    ----------
+    trk : tractogram
+        Content of a .trk file
+    tList : list
+        List of 4-D arrays of shape (x,y,z,3) containing peak information.
+    metric_maps : list
+        List of K 3-D arrays of shape (x,y,z) containing metric estimations.
+    method_list : list, optional
+        List of methods used for the relative contribution, either;
+            'ang' : angular weighting
+            'cfo' : closest-fixel-only
+            'vol' : relative volume weighting.
+        The default is ['vol', 'cfo', 'ang'].
+    streamline_number : int, optional
+        Number of the streamline to analyse. The default is 0.
+    fList : list, optional
+        List of 3D arrays (x,y,z) containing the fraction of each fiber
+        population. Only used with 'vol' method. The default is [].
+    segment_wise : bool, optional
+        If True then plots for each segment, else plots for each voxel.
+        The default is True.
+    groundTruth_map : array, optional
+        3-D array of shape (x,y,z)containing the ground truth map.
+    barplot : bool, optional
+        If False, does not plot the barplots of the relative contributions.
+        The default is True.
+
+    Returns
+    -------
+    None.
+
+    '''
 
     voxel_s, segment_s = get_streamline_weights(trk, tList,
                                                 method_list=method_list,

@@ -12,15 +12,15 @@ Quick access
    :toctree: stub
    :recursive:
 
-   TIME
+   unravel
 
-TIME
+unravel
 -------------------
 
 core
 ^^^^^^^^^^^^^^^^^^^
 
-.. automodule:: TIME.core
+.. automodule:: unravel.core
    :members:
    :undoc-members:
    :show-inheritance:
@@ -28,7 +28,7 @@ core
 utils
 ^^^^^^^^^^^^^^^^^^^
 
-.. automodule:: TIME.utils
+.. automodule:: unravel.utils
    :members:
    :undoc-members:
    :show-inheritance:

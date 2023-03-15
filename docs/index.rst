@@ -3,12 +3,12 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to TIME's documentation!
+Welcome to UNRAVEL's documentation!
 ================================
 
 Welcome to the documentation of Tractography Informed Multi-fascicle microstructure Estimation!
 
-The code is available at https://github.com/DelinteNicolas/TIME
+The code is available at https://github.com/DelinteNicolas/UNRAVEL
 
 .. toctree::
    :caption: Getting Started

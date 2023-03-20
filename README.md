@@ -10,6 +10,7 @@ Welcome to the UNRAVEL's Github repository!
 [![PyPI](https://img.shields.io/pypi/v/unravel-python?label=pypi%20package)](https://pypi.org/project/unravel-python/)
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/TIME-python)](https://pypi.org/project/TIME-python/)
 ![GitHub repo size](https://img.shields.io/github/repo-size/DelinteNicolas/unravel)
+[![DOI](https://zenodo.org/badge/455556787.svg)](https://zenodo.org/badge/latestdoi/455556787)
 
 The documentation of the code is available on [readthedocs](https://time.readthedocs.io/en/latest/)
 

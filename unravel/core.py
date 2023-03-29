@@ -1387,10 +1387,7 @@ def total_segment_length(fixel_weights):
 
     '''
 
-    if len(fixel_weights.shape) <= 3:
-        return fixel_weights
-
-    sc = np.sum(fixel_weights, axis=3)
+    sc = np.sum(fixel_weights, axis=len(fixel_weights.shape)-1)
 
     return sc
 
@@ -1458,9 +1455,15 @@ def get_weighted_mean(microstructure_map, fixel_weights,
     else:
         weighted_map = tsl
 
+    if np.sum(weighted_map) == 0:
+        return 0, 0
+
     mean = np.sum(microstructure_map*weighted_map)/np.sum(weighted_map)
 
     M = np.count_nonzero(weighted_map)
+
+    if M == 1:
+        return mean, 0
 
     dev = np.sqrt(np.sum(weighted_map*np.square(microstructure_map-mean)) /
                   ((M-1)/M*np.sum(weighted_map)))

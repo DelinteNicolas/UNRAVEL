@@ -5,5 +5,5 @@ estimates in order to improve the accuracy in the estimation of the
 microstructural properties of neural fibers in a specified tract.
 """
 
-__version__ = "1.1.7"
+__version__ = "1.1.8"
 __author__ = 'Nicolas Delinte'

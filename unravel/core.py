@@ -1414,7 +1414,7 @@ def get_microstructure_map(fixelWeights, metricMapList: list):
     '''
 
     microMap = np.zeros(metricMapList[0].shape)
-    total_weight = np.sum(fixelWeights, axis=len(fixelWeights.shape))
+    total_weight = np.sum(fixelWeights, axis=len(fixelWeights.shape)-1)
 
     for k, metricMap in enumerate(metricMapList):
         slic = tuple([slice(None)]*(len(fixelWeights.shape)-1))+(k,)

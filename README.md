@@ -12,7 +12,7 @@ Welcome to the UNRAVEL's Github repository!
 ![GitHub repo size](https://img.shields.io/github/repo-size/DelinteNicolas/unravel)
 [![DOI](https://zenodo.org/badge/455556787.svg)](https://zenodo.org/badge/latestdoi/455556787)
 
-The documentation of the code is available on [readthedocs](https://time.readthedocs.io/en/latest/)
+The documentation of the code is available on [readthedocs](https://unravel.readthedocs.io/en/latest/)
 
 ## Description
 

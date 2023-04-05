@@ -61,7 +61,7 @@ def peaks_to_RGB(peaksList: list, fracList: list = None, fvfList: list = None):
     -------
     rgb : 4-D array of shape (x,y,z,3)
         RGB map of shape (x,y,z,3) representing the main direction of
-        of the peaks.
+        of the peaks. With type float64 [0,1].
 
     '''
 
@@ -76,25 +76,34 @@ def peaks_to_RGB(peaksList: list, fracList: list = None, fvfList: list = None):
             peaksList = [peaksList]
 
     K = len(peaksList)
+    dim = len(peaksList[0].shape[:-1])
+
+    len_ratio = np.ones(peaksList[0].shape[:-1])
 
     for k in range(K):
         peaksList[k] = np.nan_to_num(peaksList[k])
+        len_ratio += np.where(np.sum(peaksList[k], axis=dim) == 0, 1, 0)
 
     if fracList is None:
         fracList = []
         for k in range(K):
-            fracList.append(np.ones(peaksList[0].shape[:3]))
+            fracList.append(np.ones(peaksList[0].shape[:-1]))
 
     if fvfList is None:
         fvfList = []
         for k in range(K):
-            fvfList.append(np.ones(peaksList[0].shape[:3]))
+            fvfList.append(np.ones(peaksList[0].shape[:-1]))
 
     rgb = np.zeros(peaksList[0].shape)
 
-    for xyz in np.ndindex(peaksList[0].shape[:3]):
+    for xyz in np.ndindex(peaksList[0].shape[:-1]):
         for k in range(K):
             rgb[xyz] += abs(peaksList[k][xyz])*fracList[k][xyz]*fvfList[k][xyz]
+
+    # Normalize between [0,1] and by number of peaks per voxel
+    rgb *= np.repeat(1+len_ratio[(slice(None),) *
+                     dim + (np.newaxis,)]/K, 3, axis=dim)
+    rgb /= np.max(rgb)
 
     return rgb
 
@@ -103,7 +112,7 @@ def peaks_to_peak(peaksList: list, fixel_weights, fracList: list = None,
                   fvfList: list = None):
     '''
     Fuse peaks into a single peak based on fixel weight and fvf, intensity
-    is then weighted with frac Mostly used for visualization purposes.
+    is then weighted with frac. Mostly used for visualization purposes.
 
     Parameters
     ----------
@@ -114,7 +123,7 @@ def peaks_to_peak(peaksList: list, fixel_weights, fracList: list = None,
 
     Returns
     -------
-    None.
+    peak : 3-D array of shape (x,y,z,3)
 
     '''
 
@@ -128,20 +137,19 @@ def peaks_to_peak(peaksList: list, fixel_weights, fracList: list = None,
     if fracList is None:
         fracList = []
         for k in range(K):
-            fracList.append(np.ones(peaksList[0].shape[:3]))/k
+            fracList.append(np.ones(peaksList[0].shape[:-1])/(k+1))
 
     if fvfList is None:
         fvfList = []
         for k in range(K):
-            fvfList.append(np.ones(peaksList[0].shape[:3]))
+            fvfList.append(np.ones(peaksList[0].shape[:-1]))
 
-    fracTot = np.zeros(peaksList[0].shape[:3])
+    fracTot = np.zeros(peaksList[0].shape[:-1])
 
-    for xyz in np.ndindex(peaksList[0].shape[:3]):
+    for xyz in np.ndindex(peaksList[0].shape[:-1]):
         for k in range(K):
-            peak[xyz] += abs(peaksList[k][xyz]) * \
-                fixel_weights[xyz+(k,)]/np.sum(fixel_weights[xyz]) * \
-                fvfList[k][xyz]
+            peak[xyz] += (abs(peaksList[k][xyz])*fixel_weights[xyz+(k,)]
+                          / np.sum(fixel_weights[xyz])*fvfList[k][xyz])
 
     for k in range(K):
         fracTot += fracList[k]
@@ -331,3 +339,4 @@ def plot_streamline_trajectory(trk, resolution_increase: int = 1,
         plt.imshow(density[:, :, int(sum(z)/len(z))].T,
                    origin='lower', cmap='gray')
         plt.plot(x, y, '.-', c='#e69402ff')
+    plt.title('Streamline trajectory')

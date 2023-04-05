@@ -1124,6 +1124,9 @@ def plot_streamline_metrics(trk, tList: list, metric_maps: list,
     if groundTruth_map is not None:
         axs.plot(vList, mgtList, label='Ground truth')
     axs.legend()
+    axs.set_ylabel('Metric')
+    axs.set_xlabel('Streamline segment position')
+    axs.set_title('Microstructure along streamline')
 
 
 def plot_streamline_metrics_old(streamList: list, metric_maps: list,

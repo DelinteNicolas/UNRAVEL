@@ -14,30 +14,58 @@ import os
 import numpy as np
 import nibabel as nib
 import matplotlib.pyplot as plt
-from unravel.core import *
+from dipy.io.streamline import load_tractogram
+from unravel.core import (get_fixel_weight, get_microstructure_map,
+                          weighted_mean_dev, main_fixel_map,
+                          plot_streamline_metrics, total_segment_length)
+from unravel.utils import (peaks_to_RGB, tract_to_ROI, peaks_to_peak,
+                           plot_streamline_trajectory)
+
 
 if __name__ == '__main__':
 
     os.chdir('..')
 
-    trk_file = 'data/sampleSubject_cc_bundle_mid_ant.trk'
-    MF_dir = 'data/'
-    Patient = 'sampleSubject'
+    data_dir = 'data/'
+    patient = 'sampleSubject'
+    trk_file = data_dir+patient+'_cc_bundle_mid_ant.trk'
+    trk = load_tractogram(trk_file, 'same')
+    trk.to_vox()
+    trk.to_corner()
 
-    fixelWeights, _, _, voxelStreams, _ = get_fixel_weight_MF(
-        trk_file, MF_dir, Patient, streamList=[0])
+    # Maps and means ----------------------------------------------------------
 
-    metricMapList = [nib.load('data/sampleSubject_mf_fvf_f0.nii.gz').get_fdata(),
-                     nib.load('data/sampleSubject_mf_fvf_f1.nii.gz').get_fdata()]
+    tList = [nib.load(data_dir+patient+'_mf_peak_f0.nii.gz').get_fdata(),
+             nib.load(data_dir+patient+'_mf_peak_f1.nii.gz').get_fdata()]
 
-    microMap = get_microstructure_map(fixelWeights, metricMapList)
+    fixel_weights, _, _ = get_fixel_weight(trk, tList)
+
+    metric_maps = [nib.load(data_dir+patient+'_mf_fvf_f0.nii.gz').get_fdata(),
+                   nib.load(data_dir+patient+'_mf_fvf_f1.nii.gz').get_fdata()]
+
+    microMap = get_microstructure_map(fixel_weights, metric_maps)
 
     weightedMean, weightedDev, _, [Min, Max] = weighted_mean_dev(
-        metricMapList, [fixelWeights[:, :, :, 0], fixelWeights[:, :, :, 1]])
+        metric_maps, [fixel_weights[:, :, :, 0], fixel_weights[:, :, :, 1]])
+
+    # Colors ------------------------------------------------------------------
+
+    fList = [nib.load(data_dir+patient+'_mf_fvf_f0.nii.gz').get_fdata(),
+             nib.load(data_dir+patient+'_mf_fvf_f1.nii.gz').get_fdata()]
+
+    mask = tract_to_ROI(trk_file)
+    mask = np.repeat(mask[:, :, :, np.newaxis], 3, axis=3)
+
+    p = peaks_to_peak(tList, fixel_weights)
+    rgb = peaks_to_RGB(peaksList=[p])*mask
+
+    # Total segment length ----------------------------------------------------
+
+    tsl = total_segment_length(fixel_weights)
 
     # Printing means ----------------------------------------------------------
 
-    print('The fiber volume fraction estimation of '+Patient+' in the middle '
+    print('The fiber volume fraction estimation of '+patient+' in the middle '
           + 'anterior bundle of the corpus callosum are \n'
           + 'Weighted mean : '+str(weightedMean)+'\n'
           + 'Weighted standard deviation : '+str(weightedDev)+'\n'
@@ -45,26 +73,41 @@ if __name__ == '__main__':
 
     # Plotting results --------------------------------------------------------
 
+    slice_num = 71
+
     background = nib.load(
         'data/sampleSubject_T1_diffusionSpace.nii.gz').get_fdata()
-    totalSegmentLength = np.sum(fixelWeights, axis=3)
-    totalSegmentLengthTransparency = totalSegmentLength / \
-        np.max(totalSegmentLength)
-    tSL = totalSegmentLength.copy()
-    tSL[totalSegmentLength > 0] = 1
+    roi = np.where(tsl > 0, .99, 0)
+    non_roi = np.where(tsl == 0, .99, 0)
+    alpha_tsl = tsl[:, slice_num, :]/np.max(tsl)*2
+    alpha_tsl[alpha_tsl > 1] = 1
 
-    fig, axs = plt.subplots(1, 4)
-    axs[0].imshow(np.rot90(main_fixel_map(
-        fixelWeights)[:, 71, :]), cmap='gray')
-    axs[0].set_title('Most aligned fixel')
-    axs[1].imshow(np.rot90(totalSegmentLength[:, 71, :]),
-                  cmap='inferno', clim=[0, 80])
-    axs[1].set_title('Total segment length')
-    axs[2].imshow(np.rot90(background[:, 71, :]), cmap='gray')
-    axs[2].imshow(np.rot90(tSL[:, 71, :]), alpha=np.rot90(
-        totalSegmentLengthTransparency[:, 71, :]), cmap='Wistia')
-    axs[2].set_title('Total segment length')
-    axs[3].imshow(np.rot90(microMap[:, 71, :]), cmap='gray')
-    axs[3].set_title('Fiber volume fraction \n (axonal density) map')
+    fig, axs = plt.subplots(2, 2)
+    axs[0, 0].imshow(np.rot90(background[:, slice_num, :]), cmap='gray')
+    axs[0, 0].imshow(np.rot90(main_fixel_map(fixel_weights)[:, slice_num, :]),
+                     cmap='Wistia', alpha=np.rot90(roi[:, slice_num, :]))
+    axs[0, 0].set_title('Most aligned fixel')
+    axs[0, 1].imshow(np.rot90(rgb[:, slice_num, :]))
+    axs[0, 1].imshow(np.rot90(background[:, slice_num, :]), cmap='gray',
+                     alpha=np.rot90(non_roi[:, slice_num, :]))
+    axs[0, 1].set_title('Angular weighted \n direction')
+    axs[1, 0].imshow(np.rot90(background[:, slice_num, :]), cmap='gray')
+    axs[1, 0].imshow(np.rot90(roi[:, slice_num, :]), cmap='Wistia',
+                     alpha=np.rot90(alpha_tsl))
+    axs[1, 0].set_title('Total segment length')
+    axs[1, 1].imshow(np.rot90(background[:, slice_num, :]), cmap='gray')
+    fvf = axs[1, 1].imshow(np.rot90(microMap[:, slice_num, :]), cmap='autumn',
+                           alpha=np.rot90(roi[:, slice_num, :]))
+    fig.colorbar(fvf, ax=axs[1, 1])
+    axs[1, 1].set_title('Fiber volume fraction \n (axonal density) map')
 
-    plot_streamline_metrics(voxelStreams, metricMapList)
+    # Along streamline metric --------------------------------------------------
+
+    stream_num = 500
+
+    plot_streamline_trajectory(trk, resolution_increase=3,
+                               streamline_number=stream_num, axis=1)
+
+    plot_streamline_metrics(trk, tList, metric_maps,
+                            method_list=['vol', 'cfo', 'ang'],
+                            streamline_number=stream_num, fList=fList)

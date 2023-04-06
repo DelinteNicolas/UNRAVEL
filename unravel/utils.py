@@ -260,7 +260,7 @@ def get_streamline_count(trk) -> int:
     return count
 
 
-def get_streamline_density(trk, resolution_increase: int = 1):
+def get_streamline_density(trk, resolution_increase: int = 1, color: bool = False):
     '''
     Get the fixel weights from a tract specified in trk_file.
 
@@ -281,7 +281,9 @@ def get_streamline_density(trk, resolution_increase: int = 1):
     from TIME.core import tract_to_streamlines, compute_subsegments
     from tqdm import tqdm
 
-    density = np.zeros(trk._dimensions*resolution_increase)
+    density = np.zeros(trk._dimensions*resolution_increase, dtype=np.float16)
+    rgb = np.zeros(tuple(trk._dimensions*resolution_increase)+(3,),
+                   dtype=np.float16)
 
     sList = tract_to_streamlines(trk)
 
@@ -294,16 +296,36 @@ def get_streamline_density(trk, resolution_increase: int = 1):
             point = streamline[i, :]*resolution_increase
 
             voxList = compute_subsegments(previous_point, point)
+            vs = (point-previous_point)
 
             for x, y, z in voxList:
 
                 x, y, z = (int(x), int(y), int(z))
 
                 density[x, y, z] += voxList[(x, y, z)]
+                if color:
+                    rgb[x, y, z] += abs(vs)
 
             previous_point = point
 
+    if color:
+        return rgb
+
     return density
+
+
+def normalize_color(rgb, norm_all_voxels: bool = False):
+
+    if norm_all_voxels:
+        norm = np.zeros(rgb.shape)
+
+        for xyz in np.ndindex(rgb.shape[:-1]):
+            if np.sum(rgb[xyz]) != 0:
+                norm[xyz] = rgb[xyz] / np.linalg.norm(rgb[xyz])
+    else:
+        norm = rgb/np.max(rgb)
+
+    return norm
 
 
 def plot_streamline_trajectory(trk, resolution_increase: int = 1,

@@ -11,7 +11,8 @@ from dipy.io.streamline import load_tractogram
 
 def tract_to_ROI(trk_file: str):
     '''
-    Returns a binary mask of each voxel containing a tractography node. The voxels containing streamlines segments but no nodes will not be selected.
+    Returns a binary mask of each voxel containing a tractography node.The
+    voxels containing streamlines segments but no nodes will not be selected.
 
     Parameters
     ----------
@@ -232,6 +233,31 @@ def tensor_to_DTI(t):
     np.seterr(divide='warn', invalid='warn')
 
     return FA, AD, RD, MD
+
+
+def get_streamline_count(trk) -> int:
+    '''
+    Returns the number of streamlines in a tractogram.
+
+    Parameters
+    ----------
+    trk : tractogram
+        Content of a .trk file
+
+    Returns
+    -------
+    count : int
+        Number of streamlines in tractogram.
+
+    '''
+
+    # Safety net
+    if type(trk) == str:
+        trk = load_tractogram(trk, 'same')
+
+    count = len(trk.streamlines._offsets)
+
+    return count
 
 
 def get_streamline_density(trk, resolution_increase: int = 1):

@@ -260,7 +260,8 @@ def get_streamline_count(trk) -> int:
     return count
 
 
-def get_streamline_density(trk, resolution_increase: int = 1, color: bool = False):
+def get_streamline_density(trk, resolution_increase: int = 1,
+                           color: bool = False):
     '''
     Get the fixel weights from a tract specified in trk_file.
 
@@ -269,8 +270,11 @@ def get_streamline_density(trk, resolution_increase: int = 1, color: bool = Fals
     trk : tractogram
         Content of a .trk file
     resolution_increase : int, optional
-        Factor multuplying the resolution/dimensions of output array. The
+        Factor multiplying the resolution/dimensions of output array. The
         default is 1.
+    color : bool, optional
+        If True, output a RGB volume with colors corresponding to the
+        directions of the streamlines, modulated by streamline density.
 
     Returns
     -------
@@ -315,6 +319,22 @@ def get_streamline_density(trk, resolution_increase: int = 1, color: bool = Fals
 
 
 def normalize_color(rgb, norm_all_voxels: bool = False):
+    '''
+    Sets values in RGB array (x,y,z,3) to be within [0,1].
+
+    Parameters
+    ----------
+    rgb : 3-D array of shape (x,y,z,3)
+        RGB volume.
+    norm_all_voxels : bool, optional
+        If True, all voxel display maximum intensity. The default is False.
+
+    Returns
+    -------
+    norm : 3-D array of shape (x,y,z,3)
+        RGB volume.
+
+    '''
 
     if norm_all_voxels:
         norm = np.zeros(rgb.shape)
@@ -353,7 +373,7 @@ def plot_streamline_trajectory(trk, resolution_increase: int = 1,
     '''
 
     import matplotlib.pyplot as plt
-    from TIME.core import tract_to_streamlines, compute_subsegments
+    from TIME.core import tract_to_streamlines
 
     density = get_streamline_density(trk,
                                      resolution_increase=resolution_increase)

@@ -275,6 +275,7 @@ def get_streamline_density(trk, resolution_increase: int = 1,
     color : bool, optional
         If True, output a RGB volume with colors corresponding to the
         directions of the streamlines, modulated by streamline density.
+        The default is False.
 
     Returns
     -------
@@ -322,6 +323,8 @@ def normalize_color(rgb, norm_all_voxels: bool = False):
     '''
     Sets values in RGB array (x,y,z,3) to be within [0,1].
 
+    TODO: increase speed when norm_all_voxels is set to True.
+
     Parameters
     ----------
     rgb : 3-D array of shape (x,y,z,3)
@@ -349,7 +352,9 @@ def normalize_color(rgb, norm_all_voxels: bool = False):
 
 
 def plot_streamline_trajectory(trk, resolution_increase: int = 1,
-                               streamline_number: int = 0, axis: int = 1):
+                               streamline_number: int = 0, axis: int = 1,
+                               color: bool = False,
+                               norm_all_voxels: bool = False):
     '''
     Produces a grpah of the streamline density of tract 'trk', the streamline
     specified with 'streamline_number' is highlighted along 'axis'.
@@ -365,6 +370,13 @@ def plot_streamline_trajectory(trk, resolution_increase: int = 1,
         Number of the streamline to be highlighted. The default is 0.
     axis : int, optional
         Axis of inspection, [0:2] in 3D volumes. The default is 1.
+    color : bool, optional
+        If True, output a RGB volume with colors corresponding to the
+        directions of the streamlines, modulated by streamline density.
+        The default is False.
+    norm_all_voxels : bool, optional
+        If True, all RGB voxels display maximum intensity. Increases computation
+        time. The default is False.
 
     Returns
     -------
@@ -375,8 +387,12 @@ def plot_streamline_trajectory(trk, resolution_increase: int = 1,
     import matplotlib.pyplot as plt
     from TIME.core import tract_to_streamlines
 
-    density = get_streamline_density(trk,
+    density = get_streamline_density(trk, color=color,
                                      resolution_increase=resolution_increase)
+
+    if color:
+        density = normalize_color(density, norm_all_voxels=norm_all_voxels)
+        density = (density*255).astype('uint8')
 
     sList = tract_to_streamlines(trk)
 
@@ -394,17 +410,23 @@ def plot_streamline_trajectory(trk, resolution_increase: int = 1,
         y.append(point[1])
         z.append(point[2])
 
+    transpose = [1, 0]
+    c = '#e69402ff'
+    if color:
+        transpose.append(2)
+        c = '#ffffffff'
+
     plt.figure()
     if axis == 0:
-        plt.imshow(density[int(sum(x)/len(x)), :, :].T,
+        plt.imshow(np.transpose(density[int(sum(x)/len(x)), :, :], transpose),
                    origin='lower', cmap='gray')
-        plt.plot(y, z, '.-', c='#e69402ff')
+        plt.plot(y, z, '.-', c=c)
     elif axis == 1:
-        plt.imshow(density[:, int(sum(y)/len(y)), :].T,
+        plt.imshow(np.transpose(density[:, int(sum(y)/len(y)), :], transpose),
                    origin='lower', cmap='gray')
-        plt.plot(x, z, '.-', c='#e69402ff')
+        plt.plot(x, z, '.-', c=c)
     else:
-        plt.imshow(density[:, :, int(sum(z)/len(z))].T,
+        plt.imshow(np.transpose(density[:, :, int(sum(z)/len(z))], transpose),
                    origin='lower', cmap='gray')
-        plt.plot(x, y, '.-', c='#e69402ff')
+        plt.plot(x, y, '.-', c=c)
     plt.title('Streamline trajectory')

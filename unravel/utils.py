@@ -260,10 +260,65 @@ def get_streamline_count(trk) -> int:
     return count
 
 
+def get_streamline_angle(trk, resolution_increase: int = 1):
+    '''
+    Get the fixel weights from a tract specified in trk_file.
+
+    Parameters
+    ----------
+    trk : tractogram
+        Content of a .trk file
+    resolution_increase : int, optional
+        Factor multiplying the resolution/dimensions of output array. The
+        default is 1.
+
+    Returns
+    -------
+    density : 3-D array of shape (x,y,z)
+        Array containing the mean angle of streamline segments in each voxel.
+    '''
+
+    from TIME.core import (tract_to_streamlines, compute_subsegments,
+                           angle_difference)
+    from tqdm import tqdm
+
+    num = np.zeros(trk._dimensions*resolution_increase)
+    angle = np.zeros(trk._dimensions*resolution_increase)
+
+    sList = tract_to_streamlines(trk)
+
+    for streamline in tqdm(sList):
+
+        previous_point = streamline[1, :]*resolution_increase
+        previous_dir = (previous_point-streamline[0, :]*resolution_increase)
+
+        for i in range(2, streamline.shape[0]):
+
+            point = streamline[i, :]*resolution_increase
+
+            voxList = compute_subsegments(previous_point, point)
+            vs = (point-previous_point)
+            ang = angle_difference(vs, previous_dir)
+
+            for x, y, z in voxList:
+
+                x, y, z = (int(x), int(y), int(z))
+
+                num[x, y, z] += 1
+                angle[x, y, z] += ang
+
+            previous_point = point
+            previous_dir = vs
+
+    angle[num != 0] /= num[num != 0]
+
+    return angle
+
+
 def get_streamline_density(trk, resolution_increase: int = 1,
                            color: bool = False):
     '''
-    Get the fixel weights from a tract specified in trk_file.
+    Get the total segment length from a tract specified in trk.
 
     Parameters
     ----------

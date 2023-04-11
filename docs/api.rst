@@ -32,3 +32,12 @@ utils
    :members:
    :undoc-members:
    :show-inheritance:
+
+viz
+^^^^^^^^^^^^^^^^^^^
+
+.. automodule:: unravel.viz
+   :members:
+   :undoc-members:
+   :show-inheritance:
+

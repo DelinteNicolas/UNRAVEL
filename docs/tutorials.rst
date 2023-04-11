@@ -56,12 +56,8 @@ Short videos can be created using the :meth:`unravel.viz.convert_to_gif` functio
 
 	convert_to_gif(rgb, output_folder='output/path', transparency=True, keep_frames=False,extension='gif', axis=0)
 
-.. image:: imgs/video.webp
-	:width: 400
-	:align: center
-
-.. image:: imgs/rgbcomb.gif
-	:width: 400
+.. image:: imgs/rgb3.webp
+	:width: 600
 	:align: center
 
 .. note::  More tutorials will be added in the near future.

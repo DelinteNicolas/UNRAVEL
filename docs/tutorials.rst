@@ -1,12 +1,12 @@
 Tutorials
 ============
 
-This page contains a few tutorials explaining the usage of the main functions in TIME.
+This page contains a few tutorials explaining the usage of the main functions in UNRAVEL.
 
 Fixel weight maps
 -----------------
 
-Fixel weights maps can be obtained using the :meth:`TIME.core.get_fixel_weight` function::
+Fixel weights maps can be obtained using the :meth:`unravel.core.get_fixel_weight` function::
 
 	import nibabel as nib
 
@@ -20,9 +20,9 @@ Fixel weights maps can be obtained using the :meth:`TIME.core.get_fixel_weight` 
 Example
 ----------------
 
-A complete example code of the main functions is available in the :class:`TIME.example` file.
+A complete example code of the main functions is available in the :class:`unravel.example` file.
 
-.. literalinclude:: ../TIME/example.py
+.. literalinclude:: ../unravel/example.py
     :linenos:
     :language: python
     :lines: 13-

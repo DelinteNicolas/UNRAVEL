@@ -38,6 +38,10 @@ The `color` parameter can be set to `True` to add directional colors::
 						streamline_number=500, axis=1,
 						color=True, norm_all_voxels=True)
 
+.. image:: imgs/stream.png
+	:width: 800
+	:align: center
+
 Create GIFs from 3D volumes
 ---------------------------
 
@@ -54,8 +58,10 @@ Short videos can be created using the :meth:`unravel.viz.convert_to_gif` functio
 
 .. image:: imgs/video.webp
 	:width: 400
+	:align: center
 
 .. image:: imgs/rgbcomb.gif
 	:width: 400
+	:align: center
 
 .. note::  More tutorials will be added in the near future.

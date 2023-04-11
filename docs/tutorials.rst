@@ -29,6 +29,15 @@ A complete example code of the main functions is available in the :class:`unrave
     :language: python
     :lines: 13-
 
+Adding color to streamline trajectory
+-------------------------------------
+
+The `color` parameter can be set to `True` to add directional colors::
+
+	plot_streamline_trajectory(trk, resolution_increase=2,
+						streamline_number=500, axis=1,
+						color=True, norm_all_voxels=True)
+
 Create GIFs from 3D volumes
 ---------------------------
 
@@ -41,9 +50,9 @@ Short videos can be created using the :meth:`unravel.viz.convert_to_gif` functio
 
 	# rgb = overlap_volumes([rgb, t1], order=0)
 
-	convert_to_gif(rgb, output_folder='output/path', transparency=True, keep_frames=False, extension='gif', axis=0)
+	convert_to_gif(rgb, output_folder='output/path', transparency=True, keep_frames=False,extension='gif', axis=0)
 
-.. image:: imgs/rgb.gif
+.. image:: imgs/video.webp
 	:width: 400
 
 .. image:: imgs/rgbcomb.gif

@@ -341,9 +341,9 @@ def get_streamline_density(trk, resolution_increase: int = 1,
     from TIME.core import tract_to_streamlines, compute_subsegments
     from tqdm import tqdm
 
-    density = np.zeros(trk._dimensions*resolution_increase, dtype=np.float16)
+    density = np.zeros(trk._dimensions*resolution_increase, dtype=np.float32)
     rgb = np.zeros(tuple(trk._dimensions*resolution_increase)+(3,),
-                   dtype=np.float16)
+                   dtype=np.float32)
 
     sList = tract_to_streamlines(trk)
 

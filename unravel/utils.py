@@ -5,6 +5,7 @@ Created on Sat Jun  4 22:17:13 2022
 @author: DELINTE Nicolas
 """
 
+import warnings
 import numpy as np
 from dipy.io.streamline import load_tractogram
 
@@ -106,7 +107,10 @@ def peaks_to_RGB(peaksList: list, fracList: list = None, fvfList: list = None,
 
     # Normalize between [0,1] and by number of peaks per voxel
     p = peak_count[(slice(None),) * dim + (np.newaxis,)]
+    warnings.filterwarnings("ignore")
     rgb *= np.repeat(1+(K-p)/p, 3, axis=dim)
+    warnings.filterwarnings("default")
+    rgb[np.isnan(rgb)] = 0
     rgb /= np.max(rgb)
 
     # Color order

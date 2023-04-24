@@ -42,7 +42,8 @@ def tract_to_ROI(trk_file: str):
     return ROI
 
 
-def peaks_to_RGB(peaksList: list, fracList: list = None, fvfList: list = None):
+def peaks_to_RGB(peaksList: list, fracList: list = None, fvfList: list = None,
+                 order: str = 'rgb'):
     '''
     Returns a RGB map of shape (x,y,z,3) representing the main direction of
     of the peaks. Optionnaly scaled by fraction and/or fiber volume fraction.
@@ -57,6 +58,8 @@ def peaks_to_RGB(peaksList: list, fracList: list = None, fvfList: list = None):
     fvfList : list of 3-D arrays, optional
         List of arrays of shape (x,y,z) containing the fiber volume fraction of
         each fixel. The default is None.
+    order : str, optional
+        Order of colors, either 'rgb', 'gbr' or 'brg'. The default is 'rgb'.
 
     Returns
     -------
@@ -79,11 +82,11 @@ def peaks_to_RGB(peaksList: list, fracList: list = None, fvfList: list = None):
     K = len(peaksList)
     dim = len(peaksList[0].shape[:-1])
 
-    len_ratio = np.ones(peaksList[0].shape[:-1])
+    peak_count = np.zeros(peaksList[0].shape[:-1])
 
     for k in range(K):
         peaksList[k] = np.nan_to_num(peaksList[k])
-        len_ratio += np.where(np.sum(peaksList[k], axis=dim) == 0, 1, 0)
+        peak_count += np.where(np.sum(peaksList[k], axis=dim) != 0, 1, 0)
 
     if fracList is None:
         fracList = []
@@ -102,9 +105,15 @@ def peaks_to_RGB(peaksList: list, fracList: list = None, fvfList: list = None):
             rgb[xyz] += abs(peaksList[k][xyz])*fracList[k][xyz]*fvfList[k][xyz]
 
     # Normalize between [0,1] and by number of peaks per voxel
-    rgb *= np.repeat(1+len_ratio[(slice(None),) *
-                     dim + (np.newaxis,)]/K, 3, axis=dim)
+    p = peak_count[(slice(None),) * dim + (np.newaxis,)]
+    rgb *= np.repeat(1+(K-p)/p, 3, axis=dim)
     rgb /= np.max(rgb)
+
+    # Color order
+    if order == 'brg':
+        rgb = rgb[(slice(None),) * 3 + ([2, 0, 1],)]
+    elif order == 'gbr':
+        rgb = rgb[(slice(None),) * 3 + ([1, 2, 0],)]
 
     return rgb
 

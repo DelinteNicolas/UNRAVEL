@@ -106,10 +106,11 @@ def peaks_to_RGB(peaksList: list, fracList: list = None, fvfList: list = None,
             rgb[xyz] += abs(peaksList[k][xyz])*fracList[k][xyz]*fvfList[k][xyz]
 
     # Normalize between [0,1] and by number of peaks per voxel
-    p = peak_count[(slice(None),) * dim + (np.newaxis,)]
-    warnings.filterwarnings("ignore")
-    rgb *= np.repeat(1+(K-p)/p, 3, axis=dim)
-    warnings.filterwarnings("default")
+    if fracList is None and fvfList is None:
+        p = peak_count[(slice(None),) * dim + (np.newaxis,)]
+        warnings.filterwarnings("ignore")
+        rgb *= np.repeat(1+(K-p)/p, 3, axis=dim)
+        warnings.filterwarnings("default")
     rgb[np.isnan(rgb)] = 0
     rgb /= np.max(rgb)
 

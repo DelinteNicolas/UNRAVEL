@@ -118,8 +118,9 @@ def voxels_from_segment(position1: tuple, position2: tuple,
 
     subseg = np.linspace(position1, position2, subparts)
 
-    for i in subseg:
-        xyz = tuple(np.floor(i))
+    voxels = np.floor(subseg)
+    for i in voxels:
+        xyz = tuple(i)
         if xyz not in voxList:
             voxList[xyz] = 1/subparts
         else:
@@ -313,10 +314,12 @@ def angular_weighting(vs, vList: list, nList: list):
 
     '''
 
-    if len(vList) == 1:
+    K = len(vList)
+
+    if K == 1:
         return [1]
 
-    if len(vList)-sum(nList) <= 1:
+    if K-sum(nList) <= 1:
         return [1-i for i in list(map(int, nList))]
 
     angle_diffList = []
@@ -336,7 +339,7 @@ def angular_weighting(vs, vList: list, nList: list):
             ang_coef.append(0)
         else:
             coef = 1-angle_diff/sum_diff
-            coef = coef/(len(vList)-1-sum(nList))
+            coef = coef/(K-1-sum(nList))
             ang_coef.append(coef)
 
     return ang_coef
@@ -363,10 +366,12 @@ def closest_fixel_only(vs, vList: list, nList: list):
 
     '''
 
-    if len(vList) == 1:
+    K = len(vList)
+
+    if K == 1:
         return [1]
 
-    if len(vList)-sum(nList) <= 1:
+    if K-sum(nList) <= 1:
         return [1-i for i in list(map(int, nList))]
 
     angle_diffList = []
@@ -415,10 +420,12 @@ def fraction_weighting(point: tuple, vList: list, nList: list, fList: list):
 
     '''
 
-    if len(vList) == 1:
+    K = len(vList)
+
+    if K == 1:
         return [1]
 
-    if len(vList)-sum(nList) <= 1:
+    if K-sum(nList) <= 1:
         return [1-i for i in list(map(int, nList))]
 
     ang_coef = []
@@ -466,7 +473,7 @@ def peak_to_tensor(peaks, norm=None, pixdim=[2, 2, 2]):
 
     '''
 
-    t = np.zeros(peaks.shape[:3]+(1, 6))
+    t = np.zeros(peaks.shape[:3]+(1, 6), dtype='float32')
 
     scaleFactor = 1000 / min(pixdim)
 
@@ -754,7 +761,7 @@ def get_fixel_weight(trk, tList: list, method: str = 'ang',
     phi_maps = {}
     K = len(tList)
     # t10=np.zeros(tList[0].shape)
-    fixelWeights = np.zeros(tList[0].shape[0:3]+(K,))
+    fixelWeights = np.zeros(tList[0].shape[0:3]+(K,), dtype='float32')
 
     sList = tract_to_streamlines(trk)
 
@@ -806,9 +813,9 @@ def get_fixel_weight(trk, tList: list, method: str = 'ang',
                 if method == 'cfo':     # Closest-fixel-only
                     coefList = closest_fixel_only(vs, vList, nList)
                 elif method == 'vol':   # Relative volume fraction
-                    if len(vList) != len(fList):
+                    if K != len(fList):
                         warnings.warn("Warning : The number of fixels ("
-                                      + str(len(vList))
+                                      + str(K)
                                       + ") does not correspond to the number "
                                       + " of fractions given ("+str(len(fList))
                                       + ").")
@@ -834,8 +841,8 @@ def get_fixel_weight(trk, tList: list, method: str = 'ang',
 
                     min_k = np.argmin(aList)
                     phi_maps[(x, y, z)][0].append(aList[min_k])
-                    phi_maps[(x, y, z)][1].append(
-                        voxList[(x, y, z)]*coefList[min_k])
+                    phi_maps[(x, y, z)][1].append(voxList[(x, y, z)]
+                                                  * coefList[min_k])
 
                 if h in streamList:
 
@@ -888,7 +895,7 @@ def main_fixel_map(fixelWeights):
 
     '''
 
-    mainFixelMap = np.zeros(fixelWeights.shape[0:3])
+    mainFixelMap = np.zeros(fixelWeights.shape[0:3], dtype='float32')
     mainFixelMap[fixelWeights[:, :, :, 0] > fixelWeights[:, :, :, 1]] = 1
     mainFixelMap[fixelWeights[:, :, :, 0] < fixelWeights[:, :, :, 1]] = 2
 
@@ -1365,9 +1372,9 @@ def angular_agreement(phi_maps, volume_shape):
 
     '''
 
-    phi_sum = np.zeros(volume_shape[:3])
-    phi_map = np.zeros(volume_shape[:3])
-    w = np.zeros(volume_shape[:3])
+    phi_sum = np.zeros(volume_shape[:3], dtype='float32')
+    phi_map = np.zeros(volume_shape[:3], dtype='float32')
+    w = np.zeros(volume_shape[:3], dtype='float32')
 
     for (x, y, z) in phi_maps:
         lista = np.array(phi_maps[(x, y, z)][0]) * \
@@ -1419,7 +1426,7 @@ def get_microstructure_map(fixelWeights, metricMapList: list):
 
     '''
 
-    microMap = np.zeros(metricMapList[0].shape)
+    microMap = np.zeros(metricMapList[0].shape, dtype='float32')
     total_weight = np.sum(fixelWeights, axis=len(fixelWeights.shape)-1)
 
     for k, metricMap in enumerate(metricMapList):
@@ -1459,7 +1466,7 @@ def get_weighted_mean(microstructure_map, fixel_weights,
     tsl = total_segment_length(fixel_weights)
 
     if weighting == 'roi':
-        weighted_map = np.zeros(tsl.shape)
+        weighted_map = np.zeros(tsl.shape, dtype='float32')
         weighted_map[tsl != 0] = 1
     else:
         weighted_map = tsl
@@ -1504,14 +1511,14 @@ def get_weighted_sums(metricMapList: list, fixelWeightList: list):
     '''
 
     K = len(metricMapList)
-    fixelWeightSum = np.zeros(fixelWeightList[0].shape)
+    fixelWeightSum = np.zeros(fixelWeightList[0].shape, dtype='float32')
     M = 0
 
     for fixelWeight in fixelWeightList:
         fixelWeightSum += fixelWeight
         M += np.count_nonzero(fixelWeight)
 
-    weightedMetricSum = np.zeros(metricMapList[0].shape)
+    weightedMetricSum = np.zeros(metricMapList[0].shape, dtype='float32')
 
     for k in range(K):
         weightedMetricSum += metricMapList[k]*fixelWeightList[k]
@@ -1590,21 +1597,3 @@ def weighted_mean_dev(metricMapList: list, fixelWeightList: list,
 
         return weightedMean, weightedDev, weightSum, [Min, Max]
         return weightedMean, weightedDev, weightSum, [Min, Max]
-
-
-if __name__ == '__main__':
-    trk_file = 'C:/Users/nicol/Documents/Doctorat/Data/Rescan/Tracts/NT1_af.left.trk'
-    trk = load_tractogram(trk_file, 'same')
-    trk.to_vox()
-    trk.to_corner()
-
-    tList = [nib.load('C:/Users/nicol/Documents/Doctorat/Data/Rescan/FingerCSD/NT1_mf_peak_f0.nii.gz').get_fdata(),
-             nib.load('C:/Users/nicol/Documents/Doctorat/Data/Rescan/FingerCSD/NT1_mf_peak_f1.nii.gz').get_fdata()]
-
-    fixel_weights, _, _ = get_fixel_weight(trk, tList, return_phi=False,
-                                           speed_up=True)
-
-    metric_maps = [nib.load('C:/Users/nicol/Documents/Doctorat/Data/Rescan/FingerCSD/NT1_mf_fvf_f0.nii.gz').get_fdata(),
-                   nib.load('C:/Users/nicol/Documents/Doctorat/Data/Rescan/FingerCSD/NT1_mf_fvf_f1.nii.gz').get_fdata()]
-
-    microMap = get_microstructure_map(fixel_weights, metric_maps)

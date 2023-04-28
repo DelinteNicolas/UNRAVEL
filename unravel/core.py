@@ -552,7 +552,8 @@ def tensor_to_peak(t):
 
 
 def get_fixel_weight_MF(trk_file: str, MF_dir: str, Patient: str, K: int = 2,
-                        method: str = 'ang', streamList: list = []):
+                        method: str = 'ang', streamList: list = [],
+                        speed_up: bool = False):
     '''
     Get the fixel weights from a tract specified in trk_file and the peaks
     obtained from Microsrcuture Fingerprinting.
@@ -622,12 +623,13 @@ def get_fixel_weight_MF(trk_file: str, MF_dir: str, Patient: str, K: int = 2,
 
             fList.append(f)
 
-    return get_fixel_weight(trk, tList, method, streamList, fList)
+    return get_fixel_weight(trk, tList, method, streamList, fList,
+                           speed_up=speed_up)
 
 
 def get_fixel_weight_DIAMOND(trk_file: str, DIAMOND_dir: str, Patient: str,
                              K: int = 2, method: str = 'ang',
-                             streamList: list = []):
+                             streamList: list = [], speed_up: bool = False):
     '''
     Get the fixel weights from a tract specified in trk_file and the tensors
     obtained from DIAMOND.
@@ -703,7 +705,8 @@ def get_fixel_weight_DIAMOND(trk_file: str, DIAMOND_dir: str, Patient: str,
 
             fList.append(fk)
 
-    return get_fixel_weight(trk, tList, method, streamList, fList)
+    return get_fixel_weight(trk, tList, method, streamList, fList,
+                           speed_up=speed_up)
 
 
 def get_fixel_weight(trk, tList: list, method: str = 'ang',

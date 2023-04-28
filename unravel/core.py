@@ -7,9 +7,11 @@ Created on Fri Mar 11 11:05:25 2022
 """
 
 import os
+import math
 import warnings
 import numpy as np
 import nibabel as nib
+from tqdm import tqdm
 from dipy.io.streamline import load_tractogram
 
 
@@ -116,8 +118,9 @@ def voxels_from_segment(position1: tuple, position2: tuple,
 
     subseg = np.linspace(position1, position2, subparts)
 
-    for i in subseg:
-        xyz = tuple(np.floor(i))
+    voxels = np.floor(subseg)
+    for i in voxels:
+        xyz = tuple(i)
         if xyz not in voxList:
             voxList[xyz] = 1/subparts
         else:
@@ -275,13 +278,14 @@ def angle_difference(v1, v2, direction: bool = False) -> float:
     if (v1n == v2n).all():
         return 0
 
-    if sum(v1n*v2n) > 1:
-        return 0
+    dot = np.dot(v1n, v2n)
 
-    if sum(v1n*v2n) < -1:
-        return 180
-
-    ang = np.arccos(sum(v1n*v2n))*180/np.pi
+    if dot > 1:
+        ang = 0
+    if dot < -1:
+        ang = 180
+    else:
+        ang = math.acos(dot)*180/math.pi
 
     if ang > 90 and not direction:
         ang = 180-ang
@@ -310,10 +314,12 @@ def angular_weighting(vs, vList: list, nList: list):
 
     '''
 
-    if len(vList) == 1:
+    K = len(vList)
+
+    if K == 1:
         return [1]
 
-    if len(vList)-sum(nList) <= 1:
+    if K-sum(nList) <= 1:
         return [1-i for i in list(map(int, nList))]
 
     angle_diffList = []
@@ -333,7 +339,7 @@ def angular_weighting(vs, vList: list, nList: list):
             ang_coef.append(0)
         else:
             coef = 1-angle_diff/sum_diff
-            coef = coef/(len(vList)-1-sum(nList))
+            coef = coef/(K-1-sum(nList))
             ang_coef.append(coef)
 
     return ang_coef
@@ -360,10 +366,12 @@ def closest_fixel_only(vs, vList: list, nList: list):
 
     '''
 
-    if len(vList) == 1:
+    K = len(vList)
+
+    if K == 1:
         return [1]
 
-    if len(vList)-sum(nList) <= 1:
+    if K-sum(nList) <= 1:
         return [1-i for i in list(map(int, nList))]
 
     angle_diffList = []
@@ -412,10 +420,12 @@ def fraction_weighting(point: tuple, vList: list, nList: list, fList: list):
 
     '''
 
-    if len(vList) == 1:
+    K = len(vList)
+
+    if K == 1:
         return [1]
 
-    if len(vList)-sum(nList) <= 1:
+    if K-sum(nList) <= 1:
         return [1-i for i in list(map(int, nList))]
 
     ang_coef = []
@@ -463,7 +473,7 @@ def peak_to_tensor(peaks, norm=None, pixdim=[2, 2, 2]):
 
     '''
 
-    t = np.zeros(peaks.shape[:3]+(1, 6))
+    t = np.zeros(peaks.shape[:3]+(1, 6), dtype='float32')
 
     scaleFactor = 1000 / min(pixdim)
 
@@ -697,7 +707,8 @@ def get_fixel_weight_DIAMOND(trk_file: str, DIAMOND_dir: str, Patient: str,
 
 
 def get_fixel_weight(trk, tList: list, method: str = 'ang',
-                     streamList: list = [], fList: list = []):
+                     streamList: list = [], fList: list = [],
+                     return_phi: bool = False, speed_up: bool = False):
     '''
     Get the fixel weights from a tract specified in trk_file.
 
@@ -719,6 +730,13 @@ def get_fixel_weight(trk, tList: list, method: str = 'ang',
     fList : list, optional
         List of 3D arrays (x,y,z) containing the fraction of each fiber
         population. Only used with 'vol' method. The default is [].
+    return_phi : bool, optional
+        If True, returns the phi_maps used for the angular agreement. Currently
+        slows down the code. The default is False.
+    speed_up : bool, optional
+        If True, divides streamline segments into a fixed number of subsegments
+        instead of comptuing exact voxel border crossings. Decreases computation
+        time. The default is False.
 
     Returns
     -------
@@ -743,14 +761,14 @@ def get_fixel_weight(trk, tList: list, method: str = 'ang',
     phi_maps = {}
     K = len(tList)
     # t10=np.zeros(tList[0].shape)
-    fixelWeights = np.zeros(tList[0].shape[0:3]+(K,))
+    fixelWeights = np.zeros(tList[0].shape[0:3]+(K,), dtype='float32')
 
     sList = tract_to_streamlines(trk)
 
     outputVoxelStream = []
     outputSegmentStream = []
 
-    for h, streamline in enumerate(sList):
+    for h, streamline in enumerate(tqdm(sList, desc='Following streamlines')):
 
         voxelStream = {}
         segmentStream = []
@@ -761,8 +779,10 @@ def get_fixel_weight(trk, tList: list, method: str = 'ang',
 
             point = streamline[i, :]
 
-            # voxList=voxels_from_segment(point,previous_point)
-            voxList = compute_subsegments(previous_point, point)
+            if speed_up:
+                voxList = voxels_from_segment(previous_point, point)
+            else:
+                voxList = compute_subsegments(previous_point, point)
 
             vs = (point-previous_point)   # Tract deltas
 
@@ -790,26 +810,12 @@ def get_fixel_weight(trk, tList: list, method: str = 'ang',
                     # t10[x,y,z,:]=np.zeros(3)
                     continue
 
-                if (x, y, z) not in phi_maps:       # Never been to this voxel
-                    phi_maps[(x, y, z)] = [[], []]
-
-                # !!! Computed twice (also in angular_weighting/cfo)
-                aList = []    # angle list
-                for k, v in enumerate(vList):
-                    if nList[k]:
-                        aList.append(1000)
-                    else:
-                        aList.append(angle_difference(vs, v))
-
-                min_k = np.argmin(aList)
-                phi_maps[(x, y, z)][0].append(aList[min_k])
-
                 if method == 'cfo':     # Closest-fixel-only
                     coefList = closest_fixel_only(vs, vList, nList)
                 elif method == 'vol':   # Relative volume fraction
-                    if len(vList) != len(fList):
+                    if K != len(fList):
                         warnings.warn("Warning : The number of fixels ("
-                                      + str(len(vList))
+                                      + str(K)
                                       + ") does not correspond to the number "
                                       + " of fractions given ("+str(len(fList))
                                       + ").")
@@ -820,8 +826,23 @@ def get_fixel_weight(trk, tList: list, method: str = 'ang',
 
                 for k, coef in enumerate(coefList):
                     fixelWeights[x, y, z, k] += voxList[(x, y, z)]*coef
-                phi_maps[(x, y, z)][1].append(
-                    voxList[(x, y, z)]*coefList[min_k])
+
+                if return_phi:
+                    if (x, y, z) not in phi_maps:     # Never been to this voxel
+                        phi_maps[(x, y, z)] = [[], []]
+
+                    # !!! Computed twice (also in angular_weighting/cfo)
+                    aList = []    # angle list
+                    for k, v in enumerate(vList):
+                        if nList[k]:
+                            aList.append(1000)
+                        else:
+                            aList.append(angle_difference(vs, v))
+
+                    min_k = np.argmin(aList)
+                    phi_maps[(x, y, z)][0].append(aList[min_k])
+                    phi_maps[(x, y, z)][1].append(voxList[(x, y, z)]
+                                                  * coefList[min_k])
 
                 if h in streamList:
 
@@ -874,7 +895,7 @@ def main_fixel_map(fixelWeights):
 
     '''
 
-    mainFixelMap = np.zeros(fixelWeights.shape[0:3])
+    mainFixelMap = np.zeros(fixelWeights.shape[0:3], dtype='float32')
     mainFixelMap[fixelWeights[:, :, :, 0] > fixelWeights[:, :, :, 1]] = 1
     mainFixelMap[fixelWeights[:, :, :, 0] < fixelWeights[:, :, :, 1]] = 2
 
@@ -988,14 +1009,6 @@ def get_streamline_weights(trk, tList: list,
 
             if all(nList):       # If no tensor in voxel
                 continue
-
-            # !!! Computed twice (also in angular_weighting/cfo)
-            aList = []    # angle list
-            for k, v in enumerate(vList):
-                if nList[k]:
-                    aList.append(1000)
-                else:
-                    aList.append(angle_difference(vs, v))
 
             for j, method in enumerate(method_list):
 
@@ -1359,9 +1372,9 @@ def angular_agreement(phi_maps, volume_shape):
 
     '''
 
-    phi_sum = np.zeros(volume_shape[:3])
-    phi_map = np.zeros(volume_shape[:3])
-    w = np.zeros(volume_shape[:3])
+    phi_sum = np.zeros(volume_shape[:3], dtype='float32')
+    phi_map = np.zeros(volume_shape[:3], dtype='float32')
+    w = np.zeros(volume_shape[:3], dtype='float32')
 
     for (x, y, z) in phi_maps:
         lista = np.array(phi_maps[(x, y, z)][0]) * \
@@ -1413,7 +1426,7 @@ def get_microstructure_map(fixelWeights, metricMapList: list):
 
     '''
 
-    microMap = np.zeros(metricMapList[0].shape)
+    microMap = np.zeros(metricMapList[0].shape, dtype='float32')
     total_weight = np.sum(fixelWeights, axis=len(fixelWeights.shape)-1)
 
     for k, metricMap in enumerate(metricMapList):
@@ -1453,7 +1466,7 @@ def get_weighted_mean(microstructure_map, fixel_weights,
     tsl = total_segment_length(fixel_weights)
 
     if weighting == 'roi':
-        weighted_map = np.zeros(tsl.shape)
+        weighted_map = np.zeros(tsl.shape, dtype='float32')
         weighted_map[tsl != 0] = 1
     else:
         weighted_map = tsl
@@ -1498,14 +1511,14 @@ def get_weighted_sums(metricMapList: list, fixelWeightList: list):
     '''
 
     K = len(metricMapList)
-    fixelWeightSum = np.zeros(fixelWeightList[0].shape)
+    fixelWeightSum = np.zeros(fixelWeightList[0].shape, dtype='float32')
     M = 0
 
     for fixelWeight in fixelWeightList:
         fixelWeightSum += fixelWeight
         M += np.count_nonzero(fixelWeight)
 
-    weightedMetricSum = np.zeros(metricMapList[0].shape)
+    weightedMetricSum = np.zeros(metricMapList[0].shape, dtype='float32')
 
     for k in range(K):
         weightedMetricSum += metricMapList[k]*fixelWeightList[k]

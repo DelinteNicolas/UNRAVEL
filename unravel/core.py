@@ -7,6 +7,7 @@ Created on Fri Mar 11 11:05:25 2022
 """
 
 import os
+import math
 import warnings
 import numpy as np
 import nibabel as nib
@@ -276,13 +277,14 @@ def angle_difference(v1, v2, direction: bool = False) -> float:
     if (v1n == v2n).all():
         return 0
 
-    if sum(v1n*v2n) > 1:
-        return 0
+    dot = np.dot(v1n, v2n)
 
-    if sum(v1n*v2n) < -1:
-        return 180
-
-    ang = np.arccos(sum(v1n*v2n))*180/np.pi
+    if dot > 1:
+        ang = 0
+    if dot < -1:
+        ang = 180
+    else:
+        ang = math.acos(dot)*180/math.pi
 
     if ang > 90 and not direction:
         ang = 180-ang
@@ -759,7 +761,7 @@ def get_fixel_weight(trk, tList: list, method: str = 'ang',
     outputVoxelStream = []
     outputSegmentStream = []
 
-    for h, streamline in tqdm(enumerate(sList), desc='Following streamlines'):
+    for h, streamline in enumerate(tqdm(sList, desc='Following streamlines')):
 
         voxelStream = {}
         segmentStream = []
@@ -1588,3 +1590,21 @@ def weighted_mean_dev(metricMapList: list, fixelWeightList: list,
 
         return weightedMean, weightedDev, weightSum, [Min, Max]
         return weightedMean, weightedDev, weightSum, [Min, Max]
+
+
+if __name__ == '__main__':
+    trk_file = 'C:/Users/nicol/Documents/Doctorat/Data/Rescan/Tracts/NT1_af.left.trk'
+    trk = load_tractogram(trk_file, 'same')
+    trk.to_vox()
+    trk.to_corner()
+
+    tList = [nib.load('C:/Users/nicol/Documents/Doctorat/Data/Rescan/FingerCSD/NT1_mf_peak_f0.nii.gz').get_fdata(),
+             nib.load('C:/Users/nicol/Documents/Doctorat/Data/Rescan/FingerCSD/NT1_mf_peak_f1.nii.gz').get_fdata()]
+
+    fixel_weights, _, _ = get_fixel_weight(trk, tList, return_phi=False,
+                                           speed_up=True)
+
+    metric_maps = [nib.load('C:/Users/nicol/Documents/Doctorat/Data/Rescan/FingerCSD/NT1_mf_fvf_f0.nii.gz').get_fdata(),
+                   nib.load('C:/Users/nicol/Documents/Doctorat/Data/Rescan/FingerCSD/NT1_mf_fvf_f1.nii.gz').get_fdata()]
+
+    microMap = get_microstructure_map(fixel_weights, metric_maps)

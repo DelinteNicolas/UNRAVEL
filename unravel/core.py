@@ -10,6 +10,7 @@ import os
 import warnings
 import numpy as np
 import nibabel as nib
+from tqdm import tqdm
 from dipy.io.streamline import load_tractogram
 
 
@@ -697,7 +698,8 @@ def get_fixel_weight_DIAMOND(trk_file: str, DIAMOND_dir: str, Patient: str,
 
 
 def get_fixel_weight(trk, tList: list, method: str = 'ang',
-                     streamList: list = [], fList: list = []):
+                     streamList: list = [], fList: list = [],
+                     return_phi: bool = False, speed_up: bool = False):
     '''
     Get the fixel weights from a tract specified in trk_file.
 
@@ -719,6 +721,13 @@ def get_fixel_weight(trk, tList: list, method: str = 'ang',
     fList : list, optional
         List of 3D arrays (x,y,z) containing the fraction of each fiber
         population. Only used with 'vol' method. The default is [].
+    return_phi : bool, optional
+        If True, returns the phi_maps used for the angular agreement. Currently
+        slows down the code. The default is False.
+    speed_up : bool, optional
+        If True, divides streamline segments into a fixed number of subsegments
+        instead of comptuing exact voxel border crossings. Decreases computation
+        time. The default is False.
 
     Returns
     -------
@@ -750,7 +759,7 @@ def get_fixel_weight(trk, tList: list, method: str = 'ang',
     outputVoxelStream = []
     outputSegmentStream = []
 
-    for h, streamline in enumerate(sList):
+    for h, streamline in tqdm(enumerate(sList), desc='Following streamlines'):
 
         voxelStream = {}
         segmentStream = []
@@ -761,8 +770,10 @@ def get_fixel_weight(trk, tList: list, method: str = 'ang',
 
             point = streamline[i, :]
 
-            # voxList=voxels_from_segment(point,previous_point)
-            voxList = compute_subsegments(previous_point, point)
+            if speed_up:
+                voxList = voxels_from_segment(previous_point, point)
+            else:
+                voxList = compute_subsegments(previous_point, point)
 
             vs = (point-previous_point)   # Tract deltas
 
@@ -790,20 +801,6 @@ def get_fixel_weight(trk, tList: list, method: str = 'ang',
                     # t10[x,y,z,:]=np.zeros(3)
                     continue
 
-                if (x, y, z) not in phi_maps:       # Never been to this voxel
-                    phi_maps[(x, y, z)] = [[], []]
-
-                # !!! Computed twice (also in angular_weighting/cfo)
-                aList = []    # angle list
-                for k, v in enumerate(vList):
-                    if nList[k]:
-                        aList.append(1000)
-                    else:
-                        aList.append(angle_difference(vs, v))
-
-                min_k = np.argmin(aList)
-                phi_maps[(x, y, z)][0].append(aList[min_k])
-
                 if method == 'cfo':     # Closest-fixel-only
                     coefList = closest_fixel_only(vs, vList, nList)
                 elif method == 'vol':   # Relative volume fraction
@@ -820,8 +817,23 @@ def get_fixel_weight(trk, tList: list, method: str = 'ang',
 
                 for k, coef in enumerate(coefList):
                     fixelWeights[x, y, z, k] += voxList[(x, y, z)]*coef
-                phi_maps[(x, y, z)][1].append(
-                    voxList[(x, y, z)]*coefList[min_k])
+
+                if return_phi:
+                    if (x, y, z) not in phi_maps:     # Never been to this voxel
+                        phi_maps[(x, y, z)] = [[], []]
+
+                    # !!! Computed twice (also in angular_weighting/cfo)
+                    aList = []    # angle list
+                    for k, v in enumerate(vList):
+                        if nList[k]:
+                            aList.append(1000)
+                        else:
+                            aList.append(angle_difference(vs, v))
+
+                    min_k = np.argmin(aList)
+                    phi_maps[(x, y, z)][0].append(aList[min_k])
+                    phi_maps[(x, y, z)][1].append(
+                        voxList[(x, y, z)]*coefList[min_k])
 
                 if h in streamList:
 
@@ -988,14 +1000,6 @@ def get_streamline_weights(trk, tList: list,
 
             if all(nList):       # If no tensor in voxel
                 continue
-
-            # !!! Computed twice (also in angular_weighting/cfo)
-            aList = []    # angle list
-            for k, v in enumerate(vList):
-                if nList[k]:
-                    aList.append(1000)
-                else:
-                    aList.append(angle_difference(vs, v))
 
             for j, method in enumerate(method_list):
 

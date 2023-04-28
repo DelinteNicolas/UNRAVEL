@@ -29,9 +29,11 @@ setup(
                       'nibabel',
                       'numpy',
                       'scipy',
+                      'tqdm',
                       ],
 
-    classifiers=['Development Status :: 3 - Alpha',
+    classifiers=['Development Status :: 4 - Beta',
+                 'Intended Audience :: Science/Research',
                  'Natural Language :: English',
                  'Programming Language :: Python'],
 )

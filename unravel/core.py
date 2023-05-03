@@ -293,6 +293,39 @@ def angle_difference(v1, v2, direction: bool = False) -> float:
     return ang
 
 
+def relative_angular_weighting(vs, vList: list, nList: list):
+
+    K = len(vList)
+
+    if K == 1:
+        return [1]
+
+    if K-sum(nList) <= 1:
+        return [1-i for i in list(map(int, nList))]
+
+    angle_diffList = []
+
+    for i, v in enumerate(vList):
+        if nList[i]:
+            angle_diffList.append(0)
+        else:
+            angle_diffList.append(angle_difference(vs, v))
+
+    sum_diff = np.sum(angle_diffList)
+
+    ang_coef = []
+
+    for i, angle_diff in enumerate(angle_diffList):
+        if nList[i]:
+            ang_coef.append(0)
+        else:
+            coef = (min(90, sum_diff)-angle_diff)/(min(90, sum_diff)
+                                                   * (K-sum(nList))-sum_diff)
+            ang_coef.append(coef)
+
+    return ang_coef
+
+
 def angular_weighting(vs, vList: list, nList: list):
     '''
     Computes the relative contributions of the segments in vList to vs using
@@ -624,7 +657,7 @@ def get_fixel_weight_MF(trk_file: str, MF_dir: str, Patient: str, K: int = 2,
             fList.append(f)
 
     return get_fixel_weight(trk, tList, method, streamList, fList,
-                           speed_up=speed_up)
+                            speed_up=speed_up)
 
 
 def get_fixel_weight_DIAMOND(trk_file: str, DIAMOND_dir: str, Patient: str,
@@ -706,7 +739,7 @@ def get_fixel_weight_DIAMOND(trk_file: str, DIAMOND_dir: str, Patient: str,
             fList.append(fk)
 
     return get_fixel_weight(trk, tList, method, streamList, fList,
-                           speed_up=speed_up)
+                            speed_up=speed_up)
 
 
 def get_fixel_weight(trk, tList: list, method: str = 'ang',
@@ -759,7 +792,7 @@ def get_fixel_weight(trk, tList: list, method: str = 'ang',
 
     '''
 
-    assert method in ['ang', 'cfo', 'vol'], ("Unknown method : "+method)
+    assert method in ['ang', 'cfo', 'vol', 'raw'], ("Unknown method : "+method)
 
     phi_maps = {}
     K = len(tList)
@@ -824,6 +857,8 @@ def get_fixel_weight(trk, tList: list, method: str = 'ang',
                                       + ").")
                     coefList = fraction_weighting(
                         (x, y, z), vList, nList, fList)
+                elif method == 'raw':
+                    coefList = relative_angular_weighting(vs, vList, nList)
                 else:   # Angular weighting
                     coefList = angular_weighting(vs, vList, nList)
 
@@ -936,7 +971,7 @@ def tract_to_streamlines(trk) -> list:
 
 
 def get_streamline_weights(trk, tList: list,
-                           method_list: list = ['vol', 'cfo', 'ang'],
+                           method_list: list = ['vol', 'cfo', 'ang', 'raw'],
                            streamline_number: int = 0, fList: list = []):
     '''
 
@@ -1026,6 +1061,8 @@ def get_streamline_weights(trk, tList: list,
                                       + ").")
                     coefList = fraction_weighting(
                         (x, y, z), vList, nList, fList)
+                elif method == 'raw':
+                    coefList = relative_angular_weighting(vs, vList, nList)
                 else:   # Angular weighting
                     coefList = angular_weighting(vs, vList, nList)
 
@@ -1049,7 +1086,7 @@ def get_streamline_weights(trk, tList: list,
 
 
 def plot_streamline_metrics(trk, tList: list, metric_maps: list,
-                            method_list: list = ['vol', 'cfo', 'ang'],
+                            method_list: list = ['vol', 'cfo', 'ang', 'raw'],
                             streamline_number: int = 0, fList: list = [],
                             segment_wise: bool = True, groundTruth_map=None,
                             barplot: bool = True):

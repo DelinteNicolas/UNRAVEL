@@ -38,7 +38,7 @@ if __name__ == '__main__':
     tList = [nib.load(data_dir+patient+'_mf_peak_f0.nii.gz').get_fdata(),
              nib.load(data_dir+patient+'_mf_peak_f1.nii.gz').get_fdata()]
 
-    fixel_weights, _, _ = get_fixel_weight(trk, tList, method='raw')
+    fixel_weights, _, _ = get_fixel_weight(trk, tList)
 
     metric_maps = [nib.load(data_dir+patient+'_mf_fvf_f0.nii.gz').get_fdata(),
                    nib.load(data_dir+patient+'_mf_fvf_f1.nii.gz').get_fdata()]

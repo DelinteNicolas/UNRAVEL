@@ -282,7 +282,7 @@ def angle_difference(v1, v2, direction: bool = False) -> float:
 
     if dot >= 1:
         ang = 0
-    if dot <= -1:
+    elif dot <= -1:
         ang = 180
     else:
         ang = math.acos(dot)*180/math.pi

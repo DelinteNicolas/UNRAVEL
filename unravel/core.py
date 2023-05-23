@@ -294,6 +294,26 @@ def angle_difference(v1, v2, direction: bool = False) -> float:
 
 
 def relative_angular_weighting(vs, vList: list, nList: list):
+    '''
+    Computes the relative contributions of the segments in vList to vs using
+    relative angular weighting, which attributes less weight to fixel
+    perpendicular to the streamline segment.
+
+    Parameters
+    ----------
+    vs : 1-D array
+        Segment vector
+    vList : list
+        List of the k vectors corresponding to each fiber population
+    nList : list
+        List of the null k vectors
+
+    Returns
+    -------
+    ang_coef : list
+        List of the k coefficients
+
+    '''
 
     K = len(vList)
 
@@ -318,6 +338,8 @@ def relative_angular_weighting(vs, vList: list, nList: list):
     for i, angle_diff in enumerate(angle_diffList):
         if nList[i]:
             ang_coef.append(0)
+        elif sum_diff == K*90:    # Else divides by 0
+            ang_coef.append(1/K)
         else:
             coef = (min(90, sum_diff)-angle_diff)/(min(90, sum_diff)
                                                    * (K-sum(nList))-sum_diff)
@@ -370,6 +392,8 @@ def angular_weighting(vs, vList: list, nList: list):
     for i, angle_diff in enumerate(angle_diffList):
         if nList[i]:
             ang_coef.append(0)
+        elif sum_diff == K*90:    # Else divides by 0
+            ang_coef.append(1/K)
         else:
             coef = 1-angle_diff/sum_diff
             coef = coef/(K-1-sum(nList))

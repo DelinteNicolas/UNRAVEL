@@ -9,6 +9,11 @@ import numpy as np
 from tqdm import tqdm
 from PIL import Image
 from scipy.ndimage import zoom
+import pyvista
+import matplotlib.pyplot as plt
+from matplotlib import cm
+from unravel.core import (angular_weighting,  relative_angular_weighting,
+                          closest_fixel_only)
 
 
 def grayscale_to_rgb(array):
@@ -150,3 +155,205 @@ def convert_to_gif(array, output_folder: str, extension: str = 'webp',
     frames[0].save(output_folder+'.'+extension,
                    lossless=True, save_all=True, append_images=frames,
                    disposal=disposal)
+
+
+def compute_alpha_surface(vList: list, method: str = 'raw'):
+    '''
+    Computes the mesh for the alpha coefficient surface based on the vectors of
+    vList.
+
+    Parameters
+    ----------
+    vList : list
+        List of the k vectors corresponding to each fiber population
+    method : str, optional
+        Method used for the relative contribution, either;
+            'ang' : angular weighting
+            'raw' : relative angular weighting
+            'cfo' : closest-fixel-only
+            'vol' : relative volume weighting.
+        The default is 'raw'.
+
+    Returns
+    -------
+    x : array of float64 of size (200,200)
+        Mesh X coordinates.
+    y : array of float64 of size (200,200)
+        Mesh Y coordinates.
+    z : array of float64 of size (200,200)
+        Mesh Z coordinates.
+    coef : array of float64 of size (200,200)
+        Alpha coefficients.
+
+    '''
+
+    nList = [0]*len(vList)
+
+    u = np.linspace(0, 2 * np.pi, 200)
+    v = np.linspace(0, np.pi, 200)
+
+    x = np.outer(np.cos(u), np.sin(v))
+    y = np.outer(np.sin(u), np.sin(v))
+    z = np.outer(np.ones(np.size(u)), np.cos(v))
+
+    coef = x.copy()
+
+    for xyz in np.ndindex(x.shape):
+
+        if method == 'raw':
+            a = relative_angular_weighting([x[xyz], y[xyz], z[xyz]],
+                                           vList, nList)[0]
+        elif method == 'cfo':
+            a = closest_fixel_only([x[xyz], y[xyz], z[xyz]], vList, nList)[0]
+        else:
+            a = angular_weighting([x[xyz], y[xyz], z[xyz]], vList, nList)[0]
+
+        x[xyz] *= (a+1)
+        y[xyz] *= (a+1)
+        z[xyz] *= (a+1)
+        coef[xyz] = a
+
+    return x, y, z, coef
+
+
+def plot_alpha_surface_matplotlib(vList: list, method: str = 'raw',
+                                  show_v: bool = False):
+    '''
+    Computes and plots the mesh for the alpha coefficient surface based on the
+    vectors of vList.
+
+    Parameters
+    ----------
+    vList : list
+        List of the k vectors corresponding to each fiber population
+    method : str, optional
+        Method used for the relative contribution, either;
+            'ang' : angular weighting
+            'raw' : relative angular weighting
+            'cfo' : closest-fixel-only
+            'vol' : relative volume weighting.
+        The default is 'raw'.
+    show_v : bool, optional
+        Show vectors. The default is False.
+
+    Returns
+    -------
+    None.
+
+    '''
+
+    x, y, z, coef = compute_alpha_surface(vList, method=method)
+
+    fig = plt.figure()
+    ax = fig.add_subplot(projection='3d')
+    ax.plot_surface(x, y, z, facecolors=cm.plasma(coef), rstride=1, cstride=1)
+    if show_v:
+        for j, v in enumerate(vList):
+            v = v/np.linalg.norm(v)*2.5
+            if j == 0:
+                ax.plot([-v[0], v[0]], [-v[1], v[1]], zs=[-v[2], v[2]],
+                        color='orange')
+            else:
+                ax.plot([-v[0], v[0]], [-v[1], v[1]], zs=[-v[2], v[2]],
+                        color='white')
+    ax.set_aspect('equal')
+
+    plt.show()
+
+
+def plot_alpha_surface_pyvista(vList: list, method: str = 'raw',
+                               show_v: bool = False):
+    '''
+    Computes and plots the mesh for the alpha coefficient surface based on the
+    vectors of vList.
+
+    Parameters
+    ----------
+    vList : list
+        List of the k vectors corresponding to each fiber population
+    method : str, optional
+        Method used for the relative contribution, either;
+            'ang' : angular weighting
+            'raw' : relative angular weighting
+            'cfo' : closest-fixel-only
+            'vol' : relative volume weighting.
+        The default is 'raw'.
+    show_v : bool, optional
+        Show vectors. The default is False.
+
+    Returns
+    -------
+    None.
+
+    '''
+
+    x, y, z, coef = compute_alpha_surface(vList, method=method)
+
+    pc = pyvista.StructuredGrid(x, y, z)
+    pl = pyvista.Plotter()
+    _ = pl.add_mesh(pc, cmap='plasma', scalars=coef.T.flatten(),
+                    smooth_shading=True, show_scalar_bar=False)
+    if show_v:
+        points = []
+        for j, v in enumerate(vList):
+            v = v/np.linalg.norm(v)*2.5
+            points.append([i*-1 for i in v])
+            points.append(v)
+            if j == 0:
+                _ = pl.add_lines(np.array(points), label=str(v), color='orange')
+            else:
+                _ = pl.add_lines(np.array(points), label=str(v), color='white')
+            points = []
+        pl.add_legend()
+    pl.show()
+
+
+def export_alpha_surface(vList: list, output_path: str, method: str = 'raw',
+                         show_v: bool = True):
+    '''
+    Computes and exports the mesh for the alpha coefficient surface based on the
+    vectors of vList.
+
+    Tutorial to powerpoint: save as .gltf, open with 3D viewer, save as .glb,
+    open with 3D builder then repair then save as .3mf
+
+    Parameters
+    ----------
+    vList : list
+        List of the k vectors corresponding to each fiber population
+    output_path : str
+        Output filename.
+    method : str, optional
+        Method used for the relative contribution, either;
+            'ang' : angular weighting
+            'raw' : relative angular weighting
+            'cfo' : closest-fixel-only
+            'vol' : relative volume weighting.
+        The default is 'raw'.
+    show_v : bool, optional
+        Show vectors. The default is True.
+
+    Returns
+    -------
+    None.
+
+    '''
+
+    x, y, z, coef = compute_alpha_surface(vList, method=method)
+
+    pc = pyvista.StructuredGrid(x, y, z)
+    pl = pyvista.Plotter()
+    _ = pl.add_mesh(pc, cmap='plasma', scalars=coef.T.flatten(),
+                    smooth_shading=True, show_scalar_bar=False)
+    if show_v:
+        points = []
+        for j, v in enumerate(vList):
+            v = v/np.linalg.norm(v)*2.5
+            points.append([i*-1 for i in v])
+            points.append(v)
+            if j == 0:
+                _ = pl.add_lines(np.array(points), label=str(v), color='orange')
+            else:
+                _ = pl.add_lines(np.array(points), label=str(v), color='white')
+            points = []
+    pl.export_gltf(output_path)

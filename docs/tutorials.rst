@@ -60,4 +60,22 @@ Short videos can be created using the :meth:`unravel.viz.convert_to_gif` functio
 	:width: 600
 	:align: center
 
+Visualize relative contributions to a streamline segment
+--------------------------------------------------------
+
+3D plots of the relative contributions of k fixels to a streamline segment s can be visualizes for every method using the :meth:`unravel.viz.plot_alpha_surface_matplotlib` to easily compare the different contributions::
+
+	vList = [[1, 2, 0], [1, 0, 0], [0, 2, 1], [5, 3, 6]]
+
+      plot_alpha_surface_matplotlib(vList, show_v=True, method='raw')
+      plot_alpha_surface_pyvista(vList, show_v=True, method='raw')
+
+.. image:: imgs/alpha_matplot.png
+	:width: 300
+	:align: left
+.. image:: imgs/alpha_pyvista.png
+	:width: 300
+	:align: right
+
+
 .. note::  More tutorials will be added in the near future.

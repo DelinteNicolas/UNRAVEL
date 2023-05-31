@@ -340,17 +340,18 @@ def relative_angular_weighting(vs, vList: list, nList: list, legacy: bool = Fals
     for i, angle_diff in enumerate(angle_diffList):
         if nList[i]:
             ang_coef.append(0)
-        elif legacy:
-            if sum_diff == K*90:    # Else divides by 0
-                ang_coef.append(1/K)
-            else:
+        elif sum_diff == K*90:    # Else divides by 0
+            ang_coef.append(1/K)
+        else:
+            if legacy:
                 coef = (min(90, sum_diff)-angle_diff)/(min(90, sum_diff)
                                                        * (K-sum(nList))-sum_diff)
-                ang_coef.append(coef)
-        else:
-            lis = angle_diffList.copy()
-            lis.remove(angle_diff)
-            coef = np.prod(lis) * (90-angle_diff)/(90 * (K-sum(nList))-sum_diff)
+            else:
+                lis = angle_diffList.copy()
+                lis.remove(angle_diff)
+                coef = np.prod(lis) * (90-angle_diff) / \
+                    (90 * (K-sum(nList))-sum_diff)
+
             ang_coef.append(coef)
 
     if not legacy:

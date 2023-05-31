@@ -293,7 +293,7 @@ def angle_difference(v1, v2, direction: bool = False) -> float:
     return ang
 
 
-def relative_angular_weighting(vs, vList: list, nList: list):
+def relative_angular_weighting(vs, vList: list, nList: list, legacy: bool = False):
     '''
     Computes the relative contributions of the segments in vList to vs using
     relative angular weighting, which attributes less weight to fixel
@@ -307,6 +307,8 @@ def relative_angular_weighting(vs, vList: list, nList: list):
         List of the k vectors corresponding to each fiber population
     nList : list
         List of the null k vectors
+    legacy : bool
+        If True uses the definition of the UNRAVEL paper. Default is False.
 
     Returns
     -------
@@ -338,17 +340,28 @@ def relative_angular_weighting(vs, vList: list, nList: list):
     for i, angle_diff in enumerate(angle_diffList):
         if nList[i]:
             ang_coef.append(0)
-        elif sum_diff == K*90:    # Else divides by 0
-            ang_coef.append(1/K)
+        elif legacy:
+            if sum_diff == K*90:    # Else divides by 0
+                ang_coef.append(1/K)
+            else:
+                coef = (min(90, sum_diff)-angle_diff)/(min(90, sum_diff)
+                                                       * (K-sum(nList))-sum_diff)
+                ang_coef.append(coef)
         else:
-            coef = (min(90, sum_diff)-angle_diff)/(min(90, sum_diff)
-                                                   * (K-sum(nList))-sum_diff)
+            lis = angle_diffList.copy()
+            lis.remove(angle_diff)
+            coef = np.prod(lis) * (90-angle_diff)/(90 * (K-sum(nList))-sum_diff)
             ang_coef.append(coef)
+
+    if not legacy:
+        ang_coef = np.array(ang_coef)
+        ang_coef = ang_coef/np.sum(ang_coef)
+        return list(ang_coef)
 
     return ang_coef
 
 
-def angular_weighting(vs, vList: list, nList: list):
+def angular_weighting(vs, vList: list, nList: list, legacy: bool = False):
     '''
     Computes the relative contributions of the segments in vList to vs using
     angular weighting.
@@ -361,6 +374,8 @@ def angular_weighting(vs, vList: list, nList: list):
         List of the k vectors corresponding to each fiber population
     nList : list
         List of the null k vectors
+    legacy : bool
+        If True uses the definition of the UNRAVEL paper. Default is False.
 
     Returns
     -------
@@ -392,12 +407,23 @@ def angular_weighting(vs, vList: list, nList: list):
     for i, angle_diff in enumerate(angle_diffList):
         if nList[i]:
             ang_coef.append(0)
-        elif sum_diff == K*90:    # Else divides by 0
-            ang_coef.append(1/K)
+        elif legacy:
+            if sum_diff == K*90:    # Else divides by 0
+                ang_coef.append(1/K)
+            else:
+                coef = 1-angle_diff/sum_diff
+                coef = coef/(K-1-sum(nList))
+                ang_coef.append(coef)
         else:
-            coef = 1-angle_diff/sum_diff
-            coef = coef/(K-1-sum(nList))
+            lis = angle_diffList.copy()
+            lis.remove(angle_diff)
+            coef = np.prod(lis)
             ang_coef.append(coef)
+
+    if not legacy:
+        ang_coef = np.array(ang_coef)
+        ang_coef = ang_coef/np.sum(ang_coef)
+        return list(ang_coef)
 
     return ang_coef
 

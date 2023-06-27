@@ -161,10 +161,15 @@ def peaks_to_peak(peaksList: list, fixel_weights, fracList: list = None,
 
     fracTot = np.zeros(peaksList[0].shape[:-1])
 
+    warnings.filterwarnings("error")
     for xyz in np.ndindex(peaksList[0].shape[:-1]):
         for k in range(K):
-            peak[xyz] += (abs(peaksList[k][xyz])*fixel_weights[xyz+(k,)]
-                          / np.sum(fixel_weights[xyz])*fvfList[k][xyz])
+            try:
+                peak[xyz] += (abs(peaksList[k][xyz])*fixel_weights[xyz+(k,)]
+                              / np.sum(fixel_weights[xyz])*fvfList[k][xyz])
+            except RuntimeWarning:
+                continue
+    warnings.resetwarnings()
 
     for k in range(K):
         fracTot += fracList[k]
@@ -292,8 +297,8 @@ def get_streamline_angle(trk, resolution_increase: int = 1):
         Array containing the mean angle of streamline segments in each voxel.
     '''
 
-    from TIME.core import (tract_to_streamlines, compute_subsegments,
-                           angle_difference)
+    from unravel.core import (tract_to_streamlines, compute_subsegments,
+                              angle_difference)
     from tqdm import tqdm
 
     num = np.zeros(trk._dimensions*resolution_increase)
@@ -352,7 +357,7 @@ def get_streamline_density(trk, resolution_increase: int = 1,
         Array containing the streamline density in each voxel.
     '''
 
-    from TIME.core import tract_to_streamlines, compute_subsegments
+    from unravel.core import tract_to_streamlines, compute_subsegments
     from tqdm import tqdm
 
     density = np.zeros(trk._dimensions*resolution_increase, dtype=np.float32)
@@ -454,7 +459,7 @@ def plot_streamline_trajectory(trk, resolution_increase: int = 1,
     '''
 
     import matplotlib.pyplot as plt
-    from TIME.core import tract_to_streamlines
+    from unravel.core import tract_to_streamlines
 
     density = get_streamline_density(trk, color=color,
                                      resolution_increase=resolution_increase)

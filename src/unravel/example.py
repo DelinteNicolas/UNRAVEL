@@ -24,7 +24,7 @@ from unravel.utils import (peaks_to_RGB, tract_to_ROI, peaks_to_peak,
 
 if __name__ == '__main__':
 
-    os.chdir('..')
+    os.chdir('../..')
 
     data_dir = 'data/'
     patient = 'sampleSubject'

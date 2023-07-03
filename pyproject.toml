@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools","wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "unravel-python"
+authors = [
+    {name = "Nicolas Delinte", email = "nicolas.delinte@uclouvain.be"},
+]
+readme="README.md"
+description = "Implementation of UNRAVEL"
+keywords = ["tractography", "multi-fixel"]
+license = {text = "GNU General Public License v3.0"}
+classifiers = ['Intended Audience :: Science/Research',
+                'Natural Language :: English',
+                'Programming Language :: Python',
+]
+dependencies = ['dipy',
+                'nibabel',
+                'numpy',
+                'scipy',
+                'tqdm',
+]
+dynamic = ["version"]
+
+[tool.setuptools.dynamic]
+version = {attr = "unravel.__version__"}
+
+[project.urls]
+"GitHub" = "https://github.com/DelinteNicolas/UNRAVEL"
+"Documentation" = "https://unravel.readthedocs.io/en/latest/"
+
+[tool.setuptools.packages.find]
+where = ["src"] 

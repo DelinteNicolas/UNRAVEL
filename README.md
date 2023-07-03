@@ -83,3 +83,8 @@ An example use of the main methods and outputs of UNRAVEL is written in the `exa
 <p align="center">
   <img src="https://user-images.githubusercontent.com/70629561/169159877-ffbb9b99-ab99-451a-b6a1-24c0b1b5d124.gif" />
 
+## Publication & citation
+
+Main publication DOI : [10.3389/fnins.2023.1199568](https://doi.org/10.3389/fnins.2023.1199568)
+
+Cite article as : "Delinte N, Dricot L, Macq B, Gosse C, Van Reybroeck M and Rensonnet G (2023) Unraveling multi-fixel microstructure with tractography and angular weighting. Front. Neurosci. 17:1199568. doi: 10.3389/fnins.2023.1199568"

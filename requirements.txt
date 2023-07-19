@@ -3,4 +3,4 @@ matplotlib==3.4.3
 nibabel==3.2.1
 numpy
 numpydoc==1.1.0
-scipy==1.7.3
+scipy==1.10.0

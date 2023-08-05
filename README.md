@@ -1,7 +1,7 @@
 # UNRAVEL - UtiliziNg tRActography to uncoVEr muLti-fixel microstructure
 
 <p align="center">
-  <img src="https://user-images.githubusercontent.com/70629561/224088594-7bcbded3-9f68-4389-955b-6141569b3c06.png" width="600" />
+  <img src="https://github.com/DelinteNicolas/UNRAVEL/assets/70629561/636f7cfa-8718-496c-ab61-7a86b37d774e" width="600" />
 </p>
 
 Welcome to the UNRAVEL's Github repository!

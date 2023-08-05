@@ -6,7 +6,7 @@ This page contains a few tutorials explaining the usage of the main functions in
 Fixel weight maps
 -----------------
 
-Fixel weights maps can be obtained using the :meth:`src.unravel.core.get_fixel_weight` function::
+Fixel weights maps can be obtained using the :meth:`unravel.core.get_fixel_weight` function::
 
 	import nibabel as nib
 
@@ -24,7 +24,7 @@ Example
 
 A complete example code of the main functions is available in the :class:`unravel.example` file.
 
-.. literalinclude:: ../src/unravel/example.py
+.. literalinclude:: ../unravel/example.py
     :linenos:
     :language: python
     :lines: 13-
@@ -45,7 +45,7 @@ The `color` parameter can be set to `True` to add directional colors::
 Create GIFs from 3D volumes
 ---------------------------
 
-Short videos can be created using the :meth:`src.unravel.viz.convert_to_gif` function::
+Short videos can be created using the :meth:`unravel.viz.convert_to_gif` function::
 
 	import nibabel as nib
 
@@ -63,7 +63,7 @@ Short videos can be created using the :meth:`src.unravel.viz.convert_to_gif` fun
 Visualize relative contributions to a streamline segment
 --------------------------------------------------------
 
-3D plots of the relative contributions of k fixels to a streamline segment s can be visualizes for every method using the :meth:`src.unravel.viz.plot_alpha_surface_matplotlib` to easily compare the different contributions::
+3D plots of the relative contributions of k fixels to a streamline segment s can be visualizes for every method using the :meth:`unravel.viz.plot_alpha_surface_matplotlib` to easily compare the different contributions::
 
 	vList = [[1, 2, 0], [1, 0, 0], [0, 2, 1], [5, 3, 6]]
 

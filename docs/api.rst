@@ -12,7 +12,7 @@ Quick access
    :toctree: stub
    :recursive:
 
-   src.unravel
+   unravel
 
 unravel
 -------------------
@@ -20,7 +20,7 @@ unravel
 core
 ^^^^^^^^^^^^^^^^^^^
 
-.. automodule:: src.unravel.core
+.. automodule:: unravel.core
    :members:
    :undoc-members:
    :show-inheritance:
@@ -36,7 +36,7 @@ utils
 viz
 ^^^^^^^^^^^^^^^^^^^
 
-.. automodule:: src.unravel.viz
+.. automodule:: unravel.viz
    :members:
    :undoc-members:
    :show-inheritance:

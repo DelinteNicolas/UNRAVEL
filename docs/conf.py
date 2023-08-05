@@ -12,12 +12,12 @@
 #
 import os
 import sys
-sys.path.insert(0, os.path.abspath('../'))
+sys.path.insert(0, os.path.abspath('../src/'))
 
 
 # -- Project information -----------------------------------------------------
 
-project = 'TIME'
+project = 'UNRAVEL'
 copyright = '2022, Nicolas Delinte'
 author = 'Nicolas Delinte'
 

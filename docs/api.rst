@@ -28,7 +28,7 @@ core
 utils
 ^^^^^^^^^^^^^^^^^^^
 
-.. automodule:: src.unravel.utils
+.. automodule:: unravel.utils
    :members:
    :undoc-members:
    :show-inheritance:

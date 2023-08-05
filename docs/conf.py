@@ -22,7 +22,7 @@ copyright = '2022, Nicolas Delinte'
 author = 'Nicolas Delinte'
 
 # The full version, including alpha/beta/rc tags
-release = '2022'
+release = '2023'
 
 
 # -- General configuration ---------------------------------------------------
@@ -58,4 +58,4 @@ html_static_path = [] # = ['_static']
 # -- Options for EPUB output
 epub_show_urls = 'footnote'
 
-html_logo = './logoWhite.png'
+html_logo = './logo.png'

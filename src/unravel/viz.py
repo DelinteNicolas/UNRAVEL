@@ -223,6 +223,7 @@ def compute_alpha_surface(vList: list, method: str = 'raw',
 
 
 def plot_alpha_surface_matplotlib(vList: list, method: str = 'raw',
+                                  weighting_function=None,
                                   show_v: bool = False):
     '''
     Computes and plots the mesh for the alpha coefficient surface based on the
@@ -239,6 +240,9 @@ def plot_alpha_surface_matplotlib(vList: list, method: str = 'raw',
             'cfo' : closest-fixel-only
             'vol' : relative volume weighting.
         The default is 'raw'.
+    weighing_function : function, optional
+        Overwrites the weighing function given in method to this method. Used
+        for testing. The default is None.
     show_v : bool, optional
         Show vectors. The default is False.
 
@@ -248,7 +252,8 @@ def plot_alpha_surface_matplotlib(vList: list, method: str = 'raw',
 
     '''
 
-    x, y, z, coef = compute_alpha_surface(vList, method=method)
+    x, y, z, coef = compute_alpha_surface(vList, method=method,
+                                          weighting_function=weighting_function)
 
     fig = plt.figure()
     ax = fig.add_subplot(projection='3d')
@@ -268,6 +273,7 @@ def plot_alpha_surface_matplotlib(vList: list, method: str = 'raw',
 
 
 def plot_alpha_surface_pyvista(vList: list, method: str = 'raw',
+                               weighting_function=None,
                                show_v: bool = False):
     '''
     Computes and plots the mesh for the alpha coefficient surface based on the
@@ -284,6 +290,9 @@ def plot_alpha_surface_pyvista(vList: list, method: str = 'raw',
             'cfo' : closest-fixel-only
             'vol' : relative volume weighting.
         The default is 'raw'.
+    weighing_function : function, optional
+        Overwrites the weighing function given in method to this method. Used
+        for testing. The default is None.
     show_v : bool, optional
         Show vectors. The default is False.
 
@@ -293,7 +302,8 @@ def plot_alpha_surface_pyvista(vList: list, method: str = 'raw',
 
     '''
 
-    x, y, z, coef = compute_alpha_surface(vList, method=method)
+    x, y, z, coef = compute_alpha_surface(vList, method=method,
+                                          weighting_function=weighting_function)
 
     pc = pyvista.StructuredGrid(x, y, z)
     pl = pyvista.Plotter()

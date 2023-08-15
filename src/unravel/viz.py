@@ -157,7 +157,8 @@ def convert_to_gif(array, output_folder: str, extension: str = 'webp',
                    disposal=disposal)
 
 
-def compute_alpha_surface(vList: list, method: str = 'raw'):
+def compute_alpha_surface(vList: list, method: str = 'raw',
+                          weighting_function=None):
     '''
     Computes the mesh for the alpha coefficient surface based on the vectors of
     vList.
@@ -173,6 +174,9 @@ def compute_alpha_surface(vList: list, method: str = 'raw'):
             'cfo' : closest-fixel-only
             'vol' : relative volume weighting.
         The default is 'raw'.
+    weighing_function : function, optional
+        Overwrites the weighing function given in method to this method. Used
+        for testing. The default is None.
 
     Returns
     -------
@@ -200,7 +204,9 @@ def compute_alpha_surface(vList: list, method: str = 'raw'):
 
     for xyz in np.ndindex(x.shape):
 
-        if method == 'raw':
+        if weighting_function is not None:
+            a = weighting_function([x[xyz], y[xyz], z[xyz]], vList, nList)[0]
+        elif method == 'raw':
             a = relative_angular_weighting([x[xyz], y[xyz], z[xyz]],
                                            vList, nList)[0]
         elif method == 'cfo':

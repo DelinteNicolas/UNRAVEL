@@ -25,6 +25,14 @@ core
    :undoc-members:
    :show-inheritance:
 
+stream
+^^^^^^^^^^^^^^^^^^^
+
+.. automodule:: unravel.stream
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 utils
 ^^^^^^^^^^^^^^^^^^^
 

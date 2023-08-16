@@ -67,8 +67,8 @@ Visualize relative contributions to a streamline segment
 
 	vList = [[1, 2, 0], [1, 0, 0], [0, 2, 1], [5, 3, 6]]
 
-      plot_alpha_surface_matplotlib(vList, show_v=True, method='raw')
-      plot_alpha_surface_pyvista(vList, show_v=True, method='raw')
+     	plot_alpha_surface_matplotlib(vList, show_v=True, method='raw')
+      	plot_alpha_surface_pyvista(vList, show_v=True, method='raw')
 
 .. image:: imgs/alpha_matplot.png
 	:width: 300
@@ -76,6 +76,18 @@ Visualize relative contributions to a streamline segment
 .. image:: imgs/alpha_pyvista.png
 	:width: 300
 	:align: right
+
+Visualize a streamline average trajectory
+-----------------------------------------
+
+The average pathway of a streamline can be computed to analyze the metrics along its pathway or to filter unwanted streamlines. This pathway can be visualized using :meth:`unravel.viz.plot_nodes_and_surfaces`::
+
+	point_array = extract_nodes('path_to/streamlines.trk', level=4)
+	plot_nodes_and_surfaces(point_array)
+
+.. image:: imgs/cst_mean_trajectory.png
+	:width: 600
+	:align: center
 
 
 .. note::  More tutorials will be added in the near future.

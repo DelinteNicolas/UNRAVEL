@@ -2,7 +2,7 @@
 """
 Created on Wed Aug 16 11:25:30 2023
 
-@author: Delinte Nicolas
+@author: DELINTE Nicolas
 """
 
 
@@ -10,7 +10,6 @@ import numpy as np
 from sklearn.cluster import KMeans
 from dipy.io.stateful_tractogram import Space, StatefulTractogram, Origin
 from dipy.io.streamline import load_tractogram, save_tractogram
-import matplotlib.pyplot as plt
 
 
 def extract_nodes(trk_file: str, level: int = 3):

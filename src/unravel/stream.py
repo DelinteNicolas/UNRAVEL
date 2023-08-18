@@ -10,9 +10,11 @@ import numpy as np
 from sklearn.cluster import KMeans
 from dipy.io.stateful_tractogram import Space, StatefulTractogram, Origin
 from dipy.io.streamline import load_tractogram, save_tractogram
+from unravel.utils import tract_to_ROI
+from skimage.morphology import flood
 
 
-def extract_nodes(trk_file: str, level: int = 3):
+def extract_nodes(trk_file: str, level: int = 3, smooth: bool = True):
     '''
     The start is assumed to be the lowest position along the last axis.
 
@@ -85,7 +87,7 @@ def extract_nodes(trk_file: str, level: int = 3):
             normal_array[2**(level-j-1)*(2*i+1)] = normal
 
             # Computing normal at start
-            normal_previous = normal_array[2**(level-j-1)*(2*i+2)]
+            normal_previous = normal_array[2**(level-j-1)*(2*i)]
             ns_previous = streams_data-m_start
             sign_previous = np.where(np.sum(ns_previous*normal_previous,
                                             axis=1) > 0, 1, -1)
@@ -116,6 +118,10 @@ def extract_nodes(trk_file: str, level: int = 3):
             # Computing mean position on the surface
             points = streams_data[idx, :]
             point_array[2**(level-j-1)*(2*i+1)] = np.mean(points, axis=0)
+
+    if smooth:
+        _, point_array = get_dist_from_median_trajectory(trk_file, point_array,
+                                                         compute_dist=False)
 
     return point_array
 
@@ -167,6 +173,88 @@ def remove_streamlines(streams, idx: int):
             yield sl
 
 
+def get_dist_from_median_trajectory(trk_file: str, point_array,
+                                    compute_dist: bool = True):
+    '''
+
+
+    Parameters
+    ----------
+    trk_file : str
+        Path to tractogram file.
+    point_array : 2D array of size (n, 3)
+        Coordinates (x,y,z) of the n mean trajectory points.
+    compute_dist : bool, optional
+        Set to false to only compute median, speeds up the code.
+        The default is True.
+
+    Returns
+    -------
+    dist : TYPE
+        DESCRIPTION.
+    median_array : TYPE
+        DESCRIPTION.
+
+    '''
+
+    trk = load_tractogram(trk_file, 'same')
+    trk.to_vox()
+    trk.to_corner()
+
+    streams = trk.streamlines
+    streams_data = trk.streamlines.get_data()
+
+    # Center of mass
+    trk_roi = tract_to_ROI(trk_file)
+    center = tuple([np.average(indices) for indices in np.where(trk_roi == 1)])
+
+    dist = np.zeros((point_array.shape[0], len(streams._offsets)))
+    median_array = point_array.copy()
+
+    for i, point in enumerate(point_array):
+
+        if i == 0:
+            continue
+        if i == point_array.shape[0]-1:
+            break
+
+        # Computing normal of perpendicular surface at midpoint
+        midpoint = point_array[i]
+        normal = point_array[i-1]-point_array[i+1]
+
+        # Find indexes that cross the surface
+        ns = streams_data-midpoint
+        sign = np.where(np.sum(ns*normal, axis=1) > 0, 1, 0)
+        idx = np.argwhere(abs(np.roll(sign, 1)-sign) == 1)
+        idx = np.array(list(filter(lambda x: x not in streams._offsets, idx)))
+
+        # Must be same side as midpoint to center of mass
+        n_mp_com = midpoint-center
+        n_xyz_com = streams_data-center
+        com_filter = np.argwhere(np.sum(n_mp_com*n_xyz_com, axis=1) < 0)
+        idx = np.array(list(filter(lambda x: x not in com_filter, idx)))
+
+        # Find position
+        idx_pos = np.take_along_axis(streams_data, idx, axis=0)
+        median = np.median(idx_pos, axis=0)
+        median_array[i] = median
+
+        if not compute_dist:
+            continue
+
+        # Find distance
+        idx_dist = np.linalg.norm(idx_pos-np.repeat(median[np.newaxis, :],
+                                                    idx_pos.shape[0], axis=0),
+                                  axis=1)
+
+        for j, i_dist in enumerate(idx_dist):
+
+            n = get_streamline_number_from_index(streams, idx[j])
+            dist[i, n] = i_dist
+
+    return dist, median_array
+
+
 def remove_outlier_streamlines(trk_file, point_array, out_file: str = None):
     '''
     Removes streamlines that are outliers for more than half of the bundle
@@ -192,37 +280,8 @@ def remove_outlier_streamlines(trk_file, point_array, out_file: str = None):
     trk.to_corner()
 
     streams = trk.streamlines
-    streams_data = trk.streamlines.get_data()
 
-    dist = np.zeros((point_array.shape[0], len(streams._offsets)))
-
-    for i, point in enumerate(point_array):
-
-        if i == 0:
-            continue
-        if i == point_array.shape[0]-1:
-            break
-
-        # Computing normal of perpendicular surface at midpoint
-        midpoint = point_array[i]
-        normal = point_array[i-1]-point_array[i+1]
-
-        # Find indexes that cross the surface
-        ns = streams_data-midpoint
-        sign = np.where(np.sum(ns*normal, axis=1) > 0, 1, 0)
-        idx = np.argwhere(abs(np.roll(sign, 1)-sign) == 1)
-        idx = np.array(list(filter(lambda x: x not in streams._offsets, idx)))
-        # Find position
-        idx_pos = np.take_along_axis(streams_data, idx, axis=0)
-        # Find distance
-        idx_dist = np.linalg.norm(idx_pos-np.repeat(midpoint[np.newaxis, :],
-                                                    idx_pos.shape[0], axis=0),
-                                  axis=1)
-
-        for j, i_dist in enumerate(idx_dist):
-
-            n = get_streamline_number_from_index(streams, idx[j])
-            dist[i, n] = i_dist
+    dist, _ = get_dist_from_median_trajectory(trk_file, point_array)
 
     # Compute outliers
     q1, q3 = np.percentile(dist, [25, 75], axis=1)
@@ -236,12 +295,106 @@ def remove_outlier_streamlines(trk_file, point_array, out_file: str = None):
 
     streams = remove_streamlines(streams, n_idx)
 
-    print(str(len(n_idx))+' streamlines removed from tract')
-
     if out_file is None:
         out_file = trk_file
 
-    trk_new = StatefulTractogram(
-        streams, trk, Space.VOX, origin=Origin.TRACKVIS)
-
+    print(str(len(n_idx))+' streamlines removed from tract')
+    trk_new = StatefulTractogram(streams, trk, Space.VOX,
+                                 origin=Origin.TRACKVIS)
     save_tractogram(trk_new, out_file)
+
+
+def get_roi_sections_from_nodes(trk_file: str, point_array,
+                                simplify_shape: bool = True):
+    '''
+    Create a mask containing the subdivisions of a tract along its mean
+    trajectory.
+
+    Parameters
+    ----------
+    trk_file : str
+        Path to tractogram file.
+    point_array : 2D array of size (n, 3)
+        Coordinates (x,y,z) of the n mean trajectory points.
+    simplify_shape : bool, optional
+        Removes spurious treamlines and increases robustness but increases
+        computation time. Not necessary on straight fiber bundles. Default=True.
+
+    Returns
+    -------
+    mask: 3D array of size (x,y,z)
+        Labeled array containing the volumes of the section of the tract.
+
+    '''
+
+    trk_roi = tract_to_ROI(trk_file)
+    mask = np.zeros(trk_roi.shape)
+
+    # Center of mass
+    center = tuple([np.average(indices) for indices in np.where(trk_roi == 1)])
+
+    # Meshgrid of coordinates
+    x_val = np.linspace(0.5, trk_roi.shape[0]-0.5, trk_roi.shape[0])
+    y_val = np.linspace(0.5, trk_roi.shape[1]-0.5, trk_roi.shape[1])
+    z_val = np.linspace(0.5, trk_roi.shape[2]-0.5, trk_roi.shape[2])
+    xyz = np.stack(np.meshgrid(x_val, y_val, z_val, indexing='ij'), axis=3)
+    xyz_flat = xyz.reshape(xyz.shape[0]*xyz.shape[1]*xyz.shape[2], 3)
+
+    for i, _ in enumerate(point_array):
+
+        if i == 0:
+            continue
+
+        try:
+            m_previous = point_array[i-2]
+        except IndexError:
+            m_previous = point_array[i-1]
+        m_start = point_array[i-1]
+        m_end = point_array[i]
+        try:
+            m_next = point_array[i+1]
+        except IndexError:
+            m_next = point_array[i]
+        midpoint = (m_start+m_end)/2
+
+        # Computing normals
+        n_start = m_previous-m_end
+        n_end = m_start-m_next
+        n_mp_start = m_start-midpoint
+        n_mp_end = midpoint-m_end
+        n_xyz_start = m_start-xyz_flat
+        n_xyz_end = xyz_flat-m_end
+
+        # Find indexes that are between current plane and previous plane
+        sign_xyz_start = np.where(
+            np.sum(n_start*n_xyz_start, axis=1) > 0, 1, -1)
+        sign_xyz_end = np.where(np.sum(n_end*n_xyz_end, axis=1) > 0, 1, -1)
+
+        # Must be same side as midpoint
+        sign_mp_start = np.where(np.sum(n_start*n_mp_start) > 0, 1, -1)
+        sign_mp_end = np.where(np.sum(n_end*n_mp_end) > 0, 1, -1)
+
+        sign_mp_slice = (np.where(sign_xyz_start == sign_mp_start, 1, 0)
+                         + np.where(sign_xyz_end == sign_mp_end, 1, 0))
+        sign_mp_slice = np.where(sign_mp_slice == 2, 1, 0)
+
+        # Must be same side as midpoint to center of mass
+        n_mp_com = midpoint-center
+        n_xyz_com = xyz_flat-center
+        sign_mp_com = np.where(np.sum(n_mp_com*n_xyz_com, axis=1) > 0, 1, 0)
+
+        roi_mp_slice = sign_mp_slice.reshape(trk_roi.shape)*trk_roi
+        roi_mp_com = sign_mp_com.reshape(trk_roi.shape)*trk_roi
+        roi = roi_mp_slice + roi_mp_com
+
+        # Adding only regions selected by filters but connected to midpoint
+        if simplify_shape:
+            dot = tuple(np.floor(midpoint).astype(int))
+            if roi[dot] == 2:
+                roi_connec = flood(roi*roi_mp_slice, dot, tolerance=1,
+                                   connectivity=1)
+                roi = np.where(roi_connec == 1, 2, 0)
+
+        mask[roi == 2] = i
+
+    return mask.astype(int)

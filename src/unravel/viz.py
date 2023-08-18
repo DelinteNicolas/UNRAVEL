@@ -157,7 +157,8 @@ def convert_to_gif(array, output_folder: str, extension: str = 'webp',
                    disposal=disposal)
 
 
-def compute_alpha_surface(vList: list, method: str = 'raw'):
+def compute_alpha_surface(vList: list, method: str = 'raw',
+                          weighting_function=None):
     '''
     Computes the mesh for the alpha coefficient surface based on the vectors of
     vList.
@@ -173,6 +174,9 @@ def compute_alpha_surface(vList: list, method: str = 'raw'):
             'cfo' : closest-fixel-only
             'vol' : relative volume weighting.
         The default is 'raw'.
+    weighing_function : function, optional
+        Overwrites the weighing function given in method to this method. Used
+        for testing. The default is None.
 
     Returns
     -------
@@ -200,7 +204,9 @@ def compute_alpha_surface(vList: list, method: str = 'raw'):
 
     for xyz in np.ndindex(x.shape):
 
-        if method == 'raw':
+        if weighting_function is not None:
+            a = weighting_function([x[xyz], y[xyz], z[xyz]], vList, nList)[0]
+        elif method == 'raw':
             a = relative_angular_weighting([x[xyz], y[xyz], z[xyz]],
                                            vList, nList)[0]
         elif method == 'cfo':
@@ -217,6 +223,7 @@ def compute_alpha_surface(vList: list, method: str = 'raw'):
 
 
 def plot_alpha_surface_matplotlib(vList: list, method: str = 'raw',
+                                  weighting_function=None,
                                   show_v: bool = False):
     '''
     Computes and plots the mesh for the alpha coefficient surface based on the
@@ -233,6 +240,9 @@ def plot_alpha_surface_matplotlib(vList: list, method: str = 'raw',
             'cfo' : closest-fixel-only
             'vol' : relative volume weighting.
         The default is 'raw'.
+    weighing_function : function, optional
+        Overwrites the weighing function given in method to this method. Used
+        for testing. The default is None.
     show_v : bool, optional
         Show vectors. The default is False.
 
@@ -242,7 +252,8 @@ def plot_alpha_surface_matplotlib(vList: list, method: str = 'raw',
 
     '''
 
-    x, y, z, coef = compute_alpha_surface(vList, method=method)
+    x, y, z, coef = compute_alpha_surface(vList, method=method,
+                                          weighting_function=weighting_function)
 
     fig = plt.figure()
     ax = fig.add_subplot(projection='3d')
@@ -262,6 +273,7 @@ def plot_alpha_surface_matplotlib(vList: list, method: str = 'raw',
 
 
 def plot_alpha_surface_pyvista(vList: list, method: str = 'raw',
+                               weighting_function=None,
                                show_v: bool = False):
     '''
     Computes and plots the mesh for the alpha coefficient surface based on the
@@ -278,6 +290,9 @@ def plot_alpha_surface_pyvista(vList: list, method: str = 'raw',
             'cfo' : closest-fixel-only
             'vol' : relative volume weighting.
         The default is 'raw'.
+    weighing_function : function, optional
+        Overwrites the weighing function given in method to this method. Used
+        for testing. The default is None.
     show_v : bool, optional
         Show vectors. The default is False.
 
@@ -287,7 +302,8 @@ def plot_alpha_surface_pyvista(vList: list, method: str = 'raw',
 
     '''
 
-    x, y, z, coef = compute_alpha_surface(vList, method=method)
+    x, y, z, coef = compute_alpha_surface(vList, method=method,
+                                          weighting_function=weighting_function)
 
     pc = pyvista.StructuredGrid(x, y, z)
     pl = pyvista.Plotter()
@@ -357,3 +373,68 @@ def export_alpha_surface(vList: list, output_path: str, method: str = 'raw',
                 _ = pl.add_lines(np.array(points), label=str(v), color='white')
             points = []
     pl.export_gltf(output_path)
+
+
+def plot_nodes_and_surfaces(point_array, only_nodes: bool = False):
+    '''
+    Visualize output of stream.extract_nodes
+
+    Parameters
+    ----------
+    point_array : 2D array of size (n, 3)
+        Coordinates (x,y,z) of the n mean trajectory points.
+    only_nodes : bool, optional
+        Only plot the nodes and not the planes. The default is False.
+
+    Returns
+    -------
+    None.
+
+    '''
+
+    surf_array = np.zeros((len(point_array)-1, 3, 2, 2))
+
+    for i, midpoint in enumerate(point_array):
+
+        if i == 0:
+            continue
+        if i == point_array.shape[0]-1:
+            break
+
+        m_start = point_array[i-1]
+        m_end = point_array[i+1]
+
+        # Computing perpendicular surface at midpoint
+        normal = -m_start+m_end
+        d = -np.sum(normal * midpoint)
+        delta = 5
+        xlim = midpoint[0] - delta, midpoint[0] + delta
+        ylim = midpoint[1] - delta, midpoint[1] + delta
+        xx, yy = np.meshgrid(np.linspace(*xlim, 2), np.linspace(*ylim, 2))
+        zz = -(normal[0] * xx + normal[1] * yy + d) / normal[2]
+
+        surf_array[i, 0, :, :] = xx
+        surf_array[i, 1, :, :] = yy
+        surf_array[i, 2, :, :] = zz
+
+    fig = plt.figure()
+    ax = fig.add_subplot(projection='3d')
+
+    for i, point in enumerate(point_array):
+        x, y, z = point
+        ax.scatter(x, y, z, marker='o', color='orange')
+        if i != 0:
+            x_o, y_o, z_o = point_array[i-1]
+            ax.plot([x, x_o], [y, y_o], [z, z_o], color='orange')
+    plt.axis('equal')
+    x_lim = ax.get_xlim()
+    y_lim = ax.get_ylim()
+    z_lim = ax.get_zlim()
+
+    if only_nodes is False:
+        for xx, yy, zz in surf_array:
+            ax.plot_surface(xx, yy, zz, color='grey', alpha=0.5)
+    ax.set_xlim(x_lim)
+    ax.set_ylim(y_lim)
+    ax.set_zlim(z_lim)
+    plt.show()

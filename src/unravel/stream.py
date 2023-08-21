@@ -290,7 +290,8 @@ def remove_outlier_streamlines(trk_file, point_array, out_file: str = None):
 
     # Remove if more than half of pathway is outlier
     n_sign = np.sum(outliers, axis=0)
-    n_sign = np.where(n_sign > (len(point_array)-2)/2, 1, 0)
+    n_val = np.sum(dist > 0, axis=0)
+    n_sign = np.where(n_sign > n_val/2, 1, 0)
     n_idx = np.argwhere(n_sign == 1)
 
     streams = remove_streamlines(streams, n_idx)

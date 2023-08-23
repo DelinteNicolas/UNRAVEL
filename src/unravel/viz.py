@@ -438,3 +438,36 @@ def plot_nodes_and_surfaces(point_array, only_nodes: bool = False):
     ax.set_ylim(y_lim)
     ax.set_zlim(z_lim)
     plt.show()
+
+
+def plot_roi_sections(roi, voxel: bool = False, background: str = 'grey'):
+    '''
+
+
+    Parameters
+    ----------
+    roi : 3D array of shape (x,y,z)
+        Labeled volume of n sections of a tract.
+    voxel : bool, optional
+        If true, plots voxels. I False, plots a smoothed surface.
+        The default is False.
+    background : str, optional
+        Color of the background. The default is 'grey'.
+
+    Returns
+    -------
+    None.
+
+    '''
+
+    datapv = pyvista.wrap(roi)
+    datapv.cell_data['labels'] = roi[:-1, :-1, :-1].flatten(order='F')
+    vol = datapv.threshold(value=1, scalars='labels')
+    mesh = vol.extract_surface()
+
+    smooth = mesh.smooth_taubin(n_iter=12)
+
+    if voxel:
+        vol.plot(cmap='Set3', background=background, scalars='labels')
+    else:
+        smooth.plot(cmap='Set3', background=background, scalars='labels')

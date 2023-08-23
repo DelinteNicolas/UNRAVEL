@@ -21,11 +21,15 @@ dependencies = ['dipy',
                 'scipy',
                 'tqdm',
                 'scikit-image',
+                'scikit-learn'
 ]
 dynamic = ["version"]
 
 [tool.setuptools.dynamic]
 version = {attr = "unravel.__version__"}
+
+[project.optional-dependencies]
+viz = ["pyvista"]
 
 [project.urls]
 "GitHub" = "https://github.com/DelinteNicolas/UNRAVEL"

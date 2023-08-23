@@ -1,7 +1,7 @@
+numpy
 dipy
 matplotlib
 nibabel
-numpy
 numpydoc
 scipy
 scikit-image

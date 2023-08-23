@@ -17,6 +17,14 @@ Quick access
 unravel
 -------------------
 
+analysis
+^^^^^^^^^^^^^^^^^^^
+
+.. automodule:: unravel.analysis
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 core
 ^^^^^^^^^^^^^^^^^^^
 

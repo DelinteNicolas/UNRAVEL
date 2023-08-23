@@ -1,9 +1,0 @@
-numpy
-dipy
-matplotlib
-nibabel
-numpydoc
-scipy
-scikit-image
-scikit-learn
-pyvista

@@ -40,10 +40,11 @@ def extract_nodes(trk_file: str, level: int = 3, smooth: bool = True):
     streams = trk.streamlines
     streams_data = trk.streamlines.get_data()
 
-    # Clustering end nodes based on position
+    # Clustering end nodes based on streamline directions
     end_0 = streams_data[streams._offsets, :]
     end_1 = np.roll(streams_data[streams._offsets-1, :], -1, axis=0)
-    kmeans = KMeans(n_clusters=2, n_init="auto").fit(end_0)
+    dirs = end_1-end_0
+    kmeans = KMeans(n_clusters=2, n_init="auto").fit(dirs)
 
     # Assigning start and end based on clustering
     start = end_0.copy()

@@ -1,8 +1,5 @@
 numpydoc==1.5.0
-numpy==1.21.6
 dipy==1.6.0
-scipy
-tqdm
 scikit-learn
 scikit-image
 pyvista

@@ -52,12 +52,7 @@ templates_path = ['_templates']
 
 # -- Options for HTML output
 
-html_theme = 'classic'
-html_theme_options = {
-    "collapsiblesidebar": "true",
-    "relbarbgcolor": "black",
-    "sidebartextcolor": "white"
-}
+html_theme = 'pydata_sphinx_theme'
 html_static_path = [] # = ['_static']
 
 # -- Options for EPUB output

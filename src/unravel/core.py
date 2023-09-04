@@ -7,11 +7,9 @@ Created on Fri Mar 11 11:05:25 2022
 """
 
 import os
-import math
 import warnings
 import numpy as np
 import nibabel as nib
-from tqdm import tqdm
 from dipy.io.streamline import load_tractogram
 
 
@@ -37,7 +35,6 @@ def voxel_distance(position1: tuple, position2: tuple):
     return np.abs(position2.astype(np.int32)-position1.astype(np.int32))
 
 
-# @njit
 def voxels_from_segment(position1: tuple, position2: tuple,
                         subparts: int = 10) -> tuple:
     '''
@@ -123,7 +120,74 @@ def angle_difference(vs, vf, direction: bool = False) -> float:
     return ang
 
 
-def angular_weighting(vs, vf, nf=None, legacy: bool = False):
+def fraction_weighting(point: tuple,  nf: list, ff: list):
+    '''
+
+
+    Parameters
+    ----------
+    point : tuple
+        x, y, z coordinates.
+    nf : 2D array of size (n,k)
+        List of the null k vectors.
+    ff : 4D array of size (x,y,z,k)
+        Array containing the volume fractions of the k fixels.
+
+    Returns
+    -------
+    ang_coef : list
+        List of the k coefficients
+
+    '''
+
+    K = nf.shape[1]
+
+    x, y, z = point.astype(np.int32).T
+
+    ang_coef = ff[x, y, z, :]
+
+    ang_coef *= (1-nf)
+    s = np.sum(ang_coef, axis=1)
+    ang_coef = ang_coef/np.stack((s,)*K, axis=1)
+
+    return ang_coef
+
+
+def closest_fixel_only(vs, vf: list, nf: list):
+    '''
+    Computes the relative contributions of the segments in vList to vs using
+    closest fixel only approach.
+
+    Parameters
+    ----------
+    vs : 2D array of size (n,3)
+        Segment vector
+    vf : 3D array of size (n,3,k)
+        List of the k vectors corresponding to each fiber population
+    nf : array of size (n,k)
+        List of the null k vectors
+
+    Returns
+    -------
+    ang_coef : list
+        List of the k coefficients
+
+    '''
+
+    K = vf.shape[2]
+
+    angle_diff = angle_difference(vs, vf)
+    ang_coef = (angle_diff == np.nanmin(angle_diff, axis=1)
+                [:, None]).astype(int)
+
+    ang_coef *= (1-nf)
+    s = np.sum(ang_coef, axis=1)
+    ang_coef = ang_coef/np.stack((s,)*K, axis=1)
+
+    return ang_coef
+
+
+def angular_weighting(vs, vf, nf=None):
     '''
     Computes the relative contributions of the segments in vf to vs using
     angular weighting.
@@ -164,10 +228,54 @@ def angular_weighting(vs, vf, nf=None, legacy: bool = False):
     return ang_coef
 
 
-def get_fixel_weight(trk, peaks: list, method: str = 'ang', fList: list = [],
+def relative_angular_weighting(vs, vf, nf):
+    '''
+    Computes the relative contributions of the segments in vList to vs using
+    relative angular weighting, which attributes less weight to fixel
+    perpendicular to the streamline segment.
+
+    Parameters
+    ----------
+    vs : 2D array of size (n,3)
+        Segment vector
+    vf : 3D array of size (n,3,k)
+        List of the k vectors corresponding to each fiber population
+    nf : array of size (n,k)
+        List of the null k vectors
+
+    Returns
+    -------
+    ang_coef : list
+        List of the k coefficients
+
+    '''
+
+    K = vf.shape[2]
+
+    angle_diff = angle_difference(vs, vf)
+    # Angle product if not NaN
+    prod = np.prod(angle_diff, axis=1, where=~np.isnan(angle_diff))
+
+    # Catching warnings due to angle_fixel=0
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        ang_coef = np.stack((prod,)*K, axis=1, dtype=np.float32)
+        ang_coef = np.divide(ang_coef, angle_diff, where=~np.isnan(angle_diff))
+    ang_coef *= (90-angle_diff)
+    ang_coef = np.nan_to_num(ang_coef, nan=1)
+
+    ang_coef *= (1-nf)
+    s = np.sum(ang_coef, axis=1)
+    ang_coef = ang_coef/np.stack((s,)*K, axis=1)
+
+    return ang_coef
+
+
+def get_fixel_weight(trk, peaks, method: str = 'ang', ff=None,
                      return_phi: bool = False, subsegment: int = 10):
     '''
     Get the fixel weights from a tract specified in trk_file.
+    TODO : re-implement return_phi
 
     Parameters
     ----------
@@ -181,19 +289,15 @@ def get_fixel_weight(trk, peaks: list, method: str = 'ang', fList: list = [],
             'cfo' : closest-fixel-only
             'vol' : relative volume weighting.
         The default is 'ang'.
-    streamList : list, optional
-        Plots every streamline corresponding to the number (int) in the list.
-        The default is [].
-    fList : list, optional
-        List of 3D arrays (x,y,z) containing the fraction of each fiber
-        population. Only used with 'vol' method. The default is [].
+    ff : 4D array of size (x,y,z,k)
+        Array containing the volume fractions of the k fixels.
+        The default is None.
+    subsegment : int
+        Number of subsegments per segment (tractography step), increases
+        precision and computation time. The default is 10.
     return_phi : bool, optional
         If True, returns the phi_maps used for the angular agreement. Currently
         slows down the code. The default is False.
-    speed_up : bool, optional
-        If True, divides streamline segments into a fixed number of subsegment
-        instead of comptuing exact voxel border crossings. Decreases computation
-        time. The default is False.
 
     Returns
     -------
@@ -240,7 +344,15 @@ def get_fixel_weight(trk, peaks: list, method: str = 'ang', fList: list = [],
 
     # Computing relative contribution
     # coef = np.nan_to_num(angular_weighting(vs, vf, nf))/subsegment
-    coef = angular_weighting(vs, vf, nf)/subsegment
+
+    if method == 'vol':
+        coef = fraction_weighting(point, nf, ff)
+    elif method == 'cfo':
+        coef = closest_fixel_only(vs, vf, nf)/subsegment
+    elif method == 'ang':
+        coef = angular_weighting(vs, vf, nf)/subsegment
+    elif method == 'raw':
+        coef = relative_angular_weighting(vs, vf, nf)/subsegment
 
     # Removing streamline end points
     ends = (streams._offsets+streams._lengths-1)*subsegment
@@ -418,170 +530,6 @@ def compute_subsegments(start, finish, vox_size=[1, 1, 1], offset=[0, 0, 0],
         voxList[tuple(visited_voxels[i])] = sub
 
     return voxList
-
-
-def relative_angular_weighting(vs, vList: list, nList: list,
-                               legacy: bool = False):
-    '''
-    Computes the relative contributions of the segments in vList to vs using
-    relative angular weighting, which attributes less weight to fixel
-    perpendicular to the streamline segment.
-
-    Parameters
-    ----------
-    vs : 1-D array
-        Segment vector
-    vList : list
-        List of the k vectors corresponding to each fiber population
-    nList : list
-        List of the null k vectors
-    legacy : bool
-        If True uses the definition of the UNRAVEL paper. Default is False.
-
-    Returns
-    -------
-    ang_coef : list
-        List of the k coefficients
-
-    '''
-
-    K = len(vList)
-
-    if K == 1:
-        return [1]
-
-    if K-sum(nList) <= 1:
-        return [1-i for i in list(map(int, nList))]
-
-    angle_diffList = []
-
-    for i, v in enumerate(vList):
-        if nList[i]:
-            angle_diffList.append(0)
-        else:
-            angle_diffList.append(angle_difference(vs, v))
-
-    sum_diff = np.sum(angle_diffList)
-
-    ang_coef = []
-
-    for i, angle_diff in enumerate(angle_diffList):
-        if nList[i]:
-            ang_coef.append(0)
-        elif sum_diff == K*90:    # Else divides by 0
-            ang_coef.append(1/K)
-        else:
-            if legacy:
-                coef = (min(90, sum_diff)-angle_diff)/(min(90, sum_diff)
-                                                       * (K-sum(nList))-sum_diff)
-            else:
-                lis = angle_diffList.copy()
-                lis.remove(angle_diff)
-                coef = np.prod(lis) * (90-angle_diff) / \
-                    (90 * (K-sum(nList))-sum_diff)
-
-            ang_coef.append(coef)
-
-    if not legacy:
-        ang_coef = np.array(ang_coef)
-        ang_coef = ang_coef/np.sum(ang_coef)
-        return list(ang_coef)
-
-    return ang_coef
-
-
-def closest_fixel_only(vs, vList: list, nList: list):
-    '''
-    Computes the relative contributions of the segments in vList to vs using
-    closest fixel only approach.
-
-    Parameters
-    ----------
-    vs : 1-D array
-        Segment vector
-    vList : list
-        List of the k vectors corresponding to each fiber population
-    nList : list
-        List of the null k vectors.
-
-    Returns
-    -------
-    ang_coef : list
-        List of the k coefficients
-
-    '''
-
-    K = len(vList)
-
-    if K == 1:
-        return [1]
-
-    if K-sum(nList) <= 1:
-        return [1-i for i in list(map(int, nList))]
-
-    angle_diffList = []
-
-    for k, v in enumerate(vList):
-        if nList[k]:
-            angle_diffList.append(1000)
-        else:
-            angle_diffList.append(angle_difference(vs, v))
-
-    ang_coef = []
-
-    min_k = np.argmin(angle_diffList)
-
-    for k, angle_diff in enumerate(angle_diffList):
-        if nList[k]:
-            ang_coef.append(0)
-        else:
-            if k == min_k:
-                ang_coef.append(1)
-            else:
-                ang_coef.append(0)
-
-    return ang_coef
-
-
-def fraction_weighting(point: tuple, vList: list, nList: list, fList: list):
-    '''
-
-
-    Parameters
-    ----------
-    point : tuple
-        x, y, z coordinates.
-    vList : list
-        List of the k vectors corresponding to each fiber population.
-    nList : list
-        List of the null k vectors.
-    fList : list
-        List of fractions volumes.
-
-    Returns
-    -------
-    ang_coef : list
-        List of the k coefficients
-
-    '''
-
-    K = len(vList)
-
-    if K == 1:
-        return [1]
-
-    if K-sum(nList) <= 1:
-        return [1-i for i in list(map(int, nList))]
-
-    ang_coef = []
-
-    for k, v in enumerate(vList):
-        if nList[k]:
-            ang_coef.append(0)
-        else:
-            ang_coef.append(fList[k][point])
-
-    return ang_coef
 
 
 def t6ToMFpeak(t):
@@ -911,7 +859,7 @@ def get_streamline_weights(trk, tList: list,
                            method_list: list = ['vol', 'cfo', 'ang', 'raw'],
                            streamline_number: int = 0, fList: list = []):
     '''
-
+    TODO : modify with new get_fixel_weight architecture
 
     Parameters
     ----------
@@ -1574,3 +1522,43 @@ def weighted_mean_dev(metricMapList: list, fixelWeightList: list,
 
         return weightedMean, weightedDev, weightSum, [Min, Max]
         return weightedMean, weightedDev, weightSum, [Min, Max]
+
+
+if __name__ == '__main__':
+
+    os.chdir('C:/Users/nicol/Desktop/temp_unravel_speed/UNRAVEL/')
+
+    data_dir = 'data/'
+    patient = 'sampleSubject'
+    trk_file = data_dir+patient+'_cc_bundle_mid_ant.trk'
+    trk = load_tractogram(trk_file, 'same')
+    trk.to_vox()
+    trk.to_corner()
+
+    # Maps and means ----------------------------------------------------------
+
+    peaks = np.stack((nib.load(data_dir+patient+'_mf_peak_f0.nii.gz').get_fdata(),
+                      nib.load(data_dir+patient+'_mf_peak_f1.nii.gz').get_fdata()),
+                     axis=4)
+
+    frac = np.stack((nib.load(data_dir+patient+'_mf_fvf_f0.nii.gz').get_fdata(),
+                    nib.load(data_dir+patient+'_mf_fvf_f1.nii.gz').get_fdata()),
+                    axis=3)
+
+    fixel_weights = get_fixel_weight(trk, peaks, method='ang')
+
+    metric_maps = [nib.load(data_dir+patient+'_mf_fvf_f0.nii.gz').get_fdata(),
+                   nib.load(data_dir+patient+'_mf_fvf_f1.nii.gz').get_fdata()]
+
+    microMap = get_microstructure_map(fixel_weights, metric_maps)
+
+    weightedMean, weightedDev, _, [Min, Max] = weighted_mean_dev(
+        metric_maps, [fixel_weights[:, :, :, 0], fixel_weights[:, :, :, 1]])
+
+    # Printing means ----------------------------------------------------------
+
+    print('The fiber volume fraction estimation of '+patient+' in the middle '
+          + 'anterior bundle of the corpus callosum are \n'
+          + 'Weighted mean : '+str(weightedMean)+'\n'
+          + 'Weighted standard deviation : '+str(weightedDev)+'\n'
+          + 'Min/Max : '+str(Min), str(Max)+'\n')

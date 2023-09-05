@@ -123,8 +123,7 @@ def peaks_to_RGB(peaksList: list, fracList: list = None, fvfList: list = None,
     return rgb
 
 
-def peaks_to_peak(peaks, fixel_weights, fracList: list = None,
-                  fvfList: list = None):
+def peaks_to_peak(peaks, fixel_weights, frac=None, fvf=None):
     '''
     Fuse peaks into a single peak based on fixel weight and fvf, intensity
     is then weighted with frac. Mostly used for visualization purposes.
@@ -147,39 +146,21 @@ def peaks_to_peak(peaks, fixel_weights, fracList: list = None,
 
     peaks = np.nan_to_num(peaks)
 
-    peak = np.zeros(peaks.shape[:-1])
+    if frac is None:
+        frac = np.ones(peaks.shape[:-2]+(K,))/K
+    frac = np.stack((frac,)*3, axis=3)
 
-    if fracList is None:
-        fracList = []
-        for k in range(K):
-            fracList.append(np.ones(peaks.shape[:-2])/(k+1))
+    if fvf is None:
+        fvf = np.ones(peaks.shape[:-2]+(K,))
+    fvf = np.stack((fvf,)*3, axis=3)
 
-    if fvfList is None:
-        fvfList = []
-        for k in range(K):
-            fvfList.append(np.ones(peaks.shape[:-2]))
+    fixel_weights = np.stack((fixel_weights,)*3, axis=3)
+    weight_sum = np.sum(fixel_weights, axis=4)
+    weight_sum = np.stack((weight_sum,)*K, axis=4)
 
-    fracTot = np.zeros(peaks.shape[:-2])
-
-    warnings.filterwarnings("error")
-    for xyz in np.ndindex(peaks.shape[:-2]):
-        for k in range(K):
-            try:
-                peak[xyz] += (abs(peaks[xyz+(slice(None), k)])
-                              * fixel_weights[xyz+(k,)]
-                              / np.sum(fixel_weights[xyz])*fvfList[k][xyz])
-            except RuntimeWarning:
-                continue
-    warnings.resetwarnings()
-
-    for k in range(K):
-        fracTot += fracList[k]
-
-    peak[..., 0] *= fracTot
-    peak[..., 1] *= fracTot
-    peak[..., 2] *= fracTot
-
-    # peak = np.where(np.isnan(peak), None, peak)
+    peak = np.abs(peaks) * fixel_weights * fvf*frac
+    peak = np.divide(peak, weight_sum, where=weight_sum != 0)
+    peak = np.sum(peak, axis=-1)
 
     return peak
 
@@ -361,37 +342,35 @@ def get_streamline_density(trk, resolution_increase: int = 1,
     from unravel.core import tract_to_streamlines, compute_subsegments
     from tqdm import tqdm
 
+    streams = trk.streamlines
+    point = streams.get_data()*resolution_increase
+
     density = np.zeros(trk._dimensions*resolution_increase, dtype=np.float32)
     rgb = np.zeros(tuple(trk._dimensions*resolution_increase)+(3,),
                    dtype=np.float32)
 
-    sList = tract_to_streamlines(trk)
+    # Computing streamline segment vectors
+    next_point = np.roll(point, -1, axis=0)
+    vs = next_point-point
 
-    for streamline in tqdm(sList):
+    # Getting fixel vectors
+    x, y, z = point.astype(np.int32).T
 
-        previous_point = streamline[0, :]*resolution_increase
+    coef = np.ones(x.shape)
 
-        for i in range(1, streamline.shape[0]):
+    # Removing streamline end points
+    ends = (streams._offsets+streams._lengths-1)
+    ends = ends[:, np.newaxis]
+    ends = ends.flatten()
+    coef[ends] = 0
 
-            point = streamline[i, :]*resolution_increase
-
-            voxList = compute_subsegments(previous_point, point)
-            vs = (point-previous_point)
-
-            for x, y, z in voxList:
-
-                x, y, z = (int(x), int(y), int(z))
-
-                density[x, y, z] += voxList[(x, y, z)]
-                if color:
-                    rgb[x, y, z] += abs(vs)
-
-            previous_point = point
+    np.add.at(density, (x, y, z), coef)
+    np.add.at(rgb, (x, y, z), abs(vs))
 
     if color:
         return rgb
-
-    return density
+    else:
+        return density
 
 
 def normalize_color(rgb, norm_all_voxels: bool = False):
@@ -431,7 +410,7 @@ def plot_streamline_trajectory(trk, resolution_increase: int = 1,
                                color: bool = False,
                                norm_all_voxels: bool = False):
     '''
-    Produces a grpah of the streamline density of tract 'trk', the streamline
+    Produces a graph of the streamline density of tract 'trk', the streamline
     specified with 'streamline_number' is highlighted along 'axis'.
 
     Parameters

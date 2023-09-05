@@ -59,7 +59,7 @@ if __name__ == '__main__':
     mask = np.repeat(mask[:, :, :, np.newaxis], 3, axis=3)
 
     p = peaks_to_peak(peaks, fixel_weights)
-    rgb = peaks_to_RGB(peaksList=[p])*mask
+    rgb = peaks_to_RGB(peaks=p)*mask
 
     # Total segment length ----------------------------------------------------
 

@@ -43,11 +43,10 @@ def tract_to_ROI(trk_file: str):
     return ROI
 
 
-def peaks_to_RGB(peaksList: list, fracList: list = None, fvfList: list = None,
-                 order: str = 'rgb'):
+def peaks_to_RGB(peaks, frac=None, fvf=None, order: str = 'rgb'):
     '''
     Returns a RGB map of shape (x,y,z,3) representing the main direction of
-    of the peaks. Optionnaly scaled by fraction and/or fiber volume fraction.
+    of the peaks. Optionaly scaled by fraction and/or fiber volume fraction.
 
     Parameters
     ----------
@@ -70,49 +69,27 @@ def peaks_to_RGB(peaksList: list, fracList: list = None, fvfList: list = None,
 
     '''
 
-    # Safety net
-    if type(peaksList) != list:
-        if len(peaksList.shape) == 5:
-            peaksArray = peaksList.copy()
-            peaksList = []
-            for k in range(peaksArray.shape[4]):
-                peaksList.append(peaksArray[:, :, :, :, k])
-        else:
-            peaksList = [peaksList]
+    peaks = np.nan_to_num(peaks)
+    if len(peaks.shape) <= 4:
+        peaks = peaks[..., np.newaxis]
 
-    K = len(peaksList)
-    dim = len(peaksList[0].shape[:-1])
+    K = peaks.shape[-1]
 
-    peak_count = np.zeros(peaksList[0].shape[:-1])
+    if frac is None:
+        frac = np.ones(peaks.shape[:3]+(K,))/K
+    frac = np.stack((frac,)*3, axis=3)
 
-    for k in range(K):
-        peaksList[k] = np.nan_to_num(peaksList[k])
-        peak_count += np.where(np.sum(peaksList[k], axis=dim) != 0, 1, 0)
+    if fvf is None:
+        fvf = np.ones(peaks.shape[:3]+(K,))
+    fvf = np.stack((fvf,)*3, axis=3)
 
-    if fracList is None:
-        fracList = []
-        for k in range(K):
-            fracList.append(np.ones(peaksList[0].shape[:-1]))
+    rgb = np.sum(abs(peaks)*frac*fvf, axis=-1)
 
-    if fvfList is None:
-        fvfList = []
-        for k in range(K):
-            fvfList.append(np.ones(peaksList[0].shape[:-1]))
-
-    rgb = np.zeros(peaksList[0].shape)
-
-    for xyz in np.ndindex(peaksList[0].shape[:-1]):
-        for k in range(K):
-            rgb[xyz] += abs(peaksList[k][xyz])*fracList[k][xyz]*fvfList[k][xyz]
-
-    # Normalize between [0,1] and by number of peaks per voxel
-    if fracList is None and fvfList is None:
-        p = peak_count[(slice(None),) * dim + (np.newaxis,)]
-        warnings.filterwarnings("ignore")
-        rgb *= np.repeat(1+(K-p)/p, 3, axis=dim)
-        warnings.filterwarnings("default")
-    rgb[np.isnan(rgb)] = 0
-    rgb /= np.max(rgb)
+    # Normalize
+    if frac is None and fvf is None:
+        rgb = normalize_color(rgb, norm_all_voxels=True)
+    else:
+        rgb = normalize_color(rgb)
 
     # Color order
     if order == 'brg':
@@ -127,7 +104,6 @@ def peaks_to_peak(peaks, fixel_weights, frac=None, fvf=None):
     '''
     Fuse peaks into a single peak based on fixel weight and fvf, intensity
     is then weighted with frac. Mostly used for visualization purposes.
-    TODO: improve speed and remove for loops
 
     Parameters
     ----------
@@ -339,9 +315,6 @@ def get_streamline_density(trk, resolution_increase: int = 1,
         Array containing the streamline density in each voxel.
     '''
 
-    from unravel.core import tract_to_streamlines, compute_subsegments
-    from tqdm import tqdm
-
     streams = trk.streamlines
     point = streams.get_data()*resolution_increase
 
@@ -377,8 +350,6 @@ def normalize_color(rgb, norm_all_voxels: bool = False):
     '''
     Sets values in RGB array (x,y,z,3) to be within [0,1].
 
-    TODO: increase speed when norm_all_voxels is set to True.
-
     Parameters
     ----------
     rgb : 3-D array of shape (x,y,z,3)
@@ -394,11 +365,10 @@ def normalize_color(rgb, norm_all_voxels: bool = False):
     '''
 
     if norm_all_voxels:
-        norm = np.zeros(rgb.shape)
-
-        for xyz in np.ndindex(rgb.shape[:-1]):
-            if np.sum(rgb[xyz]) != 0:
-                norm[xyz] = rgb[xyz] / np.linalg.norm(rgb[xyz])
+        norm = np.linalg.norm(rgb, axis=3)
+        norm = np.stack((norm,)*3, axis=3)
+        norm = np.divide(rgb, norm,
+                         where=np.sum(rgb, axis=3, keepdims=True) != 0)
     else:
         norm = rgb/np.max(rgb)
 

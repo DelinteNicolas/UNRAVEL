@@ -332,7 +332,7 @@ def get_fixel_weight(trk, peaks, method: str = 'ang', ff=None,
     point = subpoint[:, :-1, :].reshape(point.shape[0]*subsegment, 3)
 
     # Computing streamline segment vectors
-    next_point = np.roll(point, -1*subsegment, axis=0)
+    next_point = np.roll(point, -1, axis=0)
     vs = next_point-point
 
     # Getting fixel vectors
@@ -902,7 +902,7 @@ def get_streamline_weights(trk, peaks,
     point = subpoint[:, :-1, :].reshape(point.shape[0]*subsegment, 3)
 
     # Computing streamline segment vectors
-    next_point = np.roll(point, -1*subsegment, axis=0)
+    next_point = np.roll(point, -1, axis=0)
     vs = next_point-point
 
     # Getting fixel vectors

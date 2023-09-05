@@ -5,7 +5,6 @@ Created on Sat Jun  4 22:17:13 2022
 @author: DELINTE Nicolas
 """
 
-import warnings
 import numpy as np
 from dipy.io.streamline import load_tractogram
 
@@ -293,7 +292,7 @@ def get_streamline_angle(trk, resolution_increase: int = 1):
 
 
 def get_streamline_density(trk, resolution_increase: int = 1,
-                           color: bool = False):
+                           color: bool = False, subsegment: int = 10):
     '''
     Get the total segment length from a tract specified in trk.
 
@@ -322,6 +321,11 @@ def get_streamline_density(trk, resolution_increase: int = 1,
     rgb = np.zeros(tuple(trk._dimensions*resolution_increase)+(3,),
                    dtype=np.float32)
 
+    # Creating subpoints
+    subpoint = np.linspace(point, np.roll(point, -1, axis=0),
+                           subsegment+1, axis=1)
+    point = subpoint[:, :-1, :].reshape(point.shape[0]*subsegment, 3)
+
     # Computing streamline segment vectors
     next_point = np.roll(point, -1, axis=0)
     vs = next_point-point
@@ -332,10 +336,12 @@ def get_streamline_density(trk, resolution_increase: int = 1,
     coef = np.ones(x.shape)
 
     # Removing streamline end points
-    ends = (streams._offsets+streams._lengths-1)
-    ends = ends[:, np.newaxis]
+    ends = (streams._offsets+streams._lengths-1)*subsegment
+    idx = np.linspace(0, subsegment-1, subsegment, dtype=np.int32)
+    ends = ends[:, np.newaxis] + idx
     ends = ends.flatten()
     coef[ends] = 0
+    vs[ends, :] = [0, 0, 0]
 
     np.add.at(density, (x, y, z), coef)
     np.add.at(rgb, (x, y, z), abs(vs))
@@ -377,7 +383,7 @@ def normalize_color(rgb, norm_all_voxels: bool = False):
 
 def plot_streamline_trajectory(trk, resolution_increase: int = 1,
                                streamline_number: int = 0, axis: int = 1,
-                               color: bool = False,
+                               color: bool = False, subsegment: int = 10,
                                norm_all_voxels: bool = False):
     '''
     Produces a graph of the streamline density of tract 'trk', the streamline
@@ -411,7 +417,7 @@ def plot_streamline_trajectory(trk, resolution_increase: int = 1,
     import matplotlib.pyplot as plt
     from unravel.core import tract_to_streamlines
 
-    density = get_streamline_density(trk, color=color,
+    density = get_streamline_density(trk, color=color, subsegment=subsegment,
                                      resolution_increase=resolution_increase)
 
     if color:

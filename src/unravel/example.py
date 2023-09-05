@@ -112,3 +112,10 @@ if __name__ == '__main__':
     plot_streamline_metrics(trk, peaks, metric_maps,
                             method_list=['vol', 'cfo', 'ang'],
                             streamline_number=stream_num, ff=fList)
+
+    # ----------------------------------------------------
+
+    plot_streamline_trajectory(trk, resolution_increase=2,
+                               streamline_number=500, axis=1,
+                               color=True, norm_all_voxels=True,
+                               subsegment=100)

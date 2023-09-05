@@ -123,16 +123,17 @@ def peaks_to_RGB(peaksList: list, fracList: list = None, fvfList: list = None,
     return rgb
 
 
-def peaks_to_peak(peaksList: list, fixel_weights, fracList: list = None,
+def peaks_to_peak(peaks, fixel_weights, fracList: list = None,
                   fvfList: list = None):
     '''
     Fuse peaks into a single peak based on fixel weight and fvf, intensity
     is then weighted with frac. Mostly used for visualization purposes.
+    TODO: improve speed and remove for loops
 
     Parameters
     ----------
-    peaksList : list of 4-D arrays
-        List of arrays containing the peaks of shape (x,y,z,3)
+    peaks : 4-D array of shape (x,y,z,3,k)
+        List of 4-D arrays of shape (x,y,z,3) containing peak information.
     fixel_weights : 4-D array of shape (x,y,z,K)
         Array containing the relative weights of the K fixels in each voxel.
 
@@ -142,30 +143,29 @@ def peaks_to_peak(peaksList: list, fixel_weights, fracList: list = None,
 
     '''
 
-    K = len(peaksList)
+    K = peaks.shape[3]
 
-    for k in range(K):
-        peaksList[k] = np.nan_to_num(peaksList[k])
+    peaks = np.nan_to_num(peaks)
 
-    peak = np.zeros(peaksList[0].shape)
+    peak = np.zeros(peaks.shape[:-1])
 
     if fracList is None:
         fracList = []
         for k in range(K):
-            fracList.append(np.ones(peaksList[0].shape[:-1])/(k+1))
+            fracList.append(np.ones(peaks.shape[:-2])/(k+1))
 
     if fvfList is None:
         fvfList = []
         for k in range(K):
-            fvfList.append(np.ones(peaksList[0].shape[:-1]))
+            fvfList.append(np.ones(peaks.shape[:-2]))
 
-    fracTot = np.zeros(peaksList[0].shape[:-1])
+    fracTot = np.zeros(peaks.shape[:-2])
 
     warnings.filterwarnings("error")
-    for xyz in np.ndindex(peaksList[0].shape[:-1]):
+    for xyz in np.ndindex(peaks.shape[:-2]):
         for k in range(K):
             try:
-                peak[xyz] += (abs(peaksList[k][xyz])*fixel_weights[xyz+(k,)]
+                peak[xyz] += (abs(peaks[xyz+(k,)])*fixel_weights[xyz+(k,)]
                               / np.sum(fixel_weights[xyz])*fvfList[k][xyz])
             except RuntimeWarning:
                 continue

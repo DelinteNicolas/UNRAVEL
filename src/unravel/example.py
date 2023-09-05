@@ -15,9 +15,9 @@ import numpy as np
 import nibabel as nib
 import matplotlib.pyplot as plt
 from dipy.io.streamline import load_tractogram
-# from unravel.core import (get_fixel_weight, get_microstructure_map,
-#                           weighted_mean_dev, main_fixel_map,
-#                           plot_streamline_metrics, total_segment_length)
+from unravel.core import (get_fixel_weight, get_microstructure_map,
+                          weighted_mean_dev, main_fixel_map,
+                          plot_streamline_metrics, total_segment_length)
 from unravel.utils import (peaks_to_RGB, tract_to_ROI, peaks_to_peak,
                            plot_streamline_trajectory)
 
@@ -35,10 +35,11 @@ if __name__ == '__main__':
 
     # Maps and means ----------------------------------------------------------
 
-    tList = [nib.load(data_dir+patient+'_mf_peak_f0.nii.gz').get_fdata(),
-             nib.load(data_dir+patient+'_mf_peak_f1.nii.gz').get_fdata()]
+    peaks = np.stack((nib.load(data_dir+patient+'_mf_peak_f0.nii.gz').get_fdata(),
+                      nib.load(data_dir+patient+'_mf_peak_f1.nii.gz').get_fdata()),
+                     axis=4)
 
-    fixel_weights, _, _ = get_fixel_weight(trk, tList)
+    fixel_weights = get_fixel_weight(trk, peaks)
 
     metric_maps = [nib.load(data_dir+patient+'_mf_fvf_f0.nii.gz').get_fdata(),
                    nib.load(data_dir+patient+'_mf_fvf_f1.nii.gz').get_fdata()]
@@ -56,7 +57,7 @@ if __name__ == '__main__':
     mask = tract_to_ROI(trk_file)
     mask = np.repeat(mask[:, :, :, np.newaxis], 3, axis=3)
 
-    p = peaks_to_peak(tList, fixel_weights)
+    p = peaks_to_peak(peaks, fixel_weights)
     rgb = peaks_to_RGB(peaksList=[p])*mask
 
     # Total segment length ----------------------------------------------------

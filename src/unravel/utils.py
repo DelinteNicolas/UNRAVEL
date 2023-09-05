@@ -143,7 +143,7 @@ def peaks_to_peak(peaks, fixel_weights, fracList: list = None,
 
     '''
 
-    K = peaks.shape[3]
+    K = peaks.shape[4]
 
     peaks = np.nan_to_num(peaks)
 
@@ -165,7 +165,8 @@ def peaks_to_peak(peaks, fixel_weights, fracList: list = None,
     for xyz in np.ndindex(peaks.shape[:-2]):
         for k in range(K):
             try:
-                peak[xyz] += (abs(peaks[xyz+(k,)])*fixel_weights[xyz+(k,)]
+                peak[xyz] += (abs(peaks[xyz+(slice(None), k)])
+                              * fixel_weights[xyz+(k,)]
                               / np.sum(fixel_weights[xyz])*fvfList[k][xyz])
             except RuntimeWarning:
                 continue

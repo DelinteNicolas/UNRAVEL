@@ -343,10 +343,8 @@ def get_fixel_weight(trk, peaks, method: str = 'ang', ff=None,
     nf = np.sum(peaks[x, y, z, 1:, :], axis=1) == 0
 
     # Computing relative contribution
-    # coef = np.nan_to_num(angular_weighting(vs, vf, nf))/subsegment
-
     if method == 'vol':
-        coef = fraction_weighting(point, nf, ff)
+        coef = fraction_weighting(point, nf, ff)/subsegment
     elif method == 'cfo':
         coef = closest_fixel_only(vs, vf, nf)/subsegment
     elif method == 'ang':
@@ -670,7 +668,7 @@ def get_fixel_weight_MF(trk_file: str, MF_dir: str, Patient: str, K: int = 2,
 
     Returns
     -------
-    fixelWeights : 4-D array of shape (x,y,z,K)
+    fixel_weights : 4-D array of shape (x,y,z,K)
         Array containing the relative weights of the K fixels in each voxel.
     phi_maps : dict
         Dictionnary containing the lists of the relative contribution and
@@ -746,7 +744,7 @@ def get_fixel_weight_DIAMOND(trk_file: str, DIAMOND_dir: str, Patient: str,
 
     Returns
     -------
-    fixelWeights : 4-D array of shape (x,y,z,K)
+    fixel_weights : 4-D array of shape (x,y,z,K)
         Array containing the relative weights of the K fixels in each voxel.
     phi_maps : dict
         Dictionnary containing the lists of the relative contribution and
@@ -802,13 +800,13 @@ def get_fixel_weight_DIAMOND(trk_file: str, DIAMOND_dir: str, Patient: str,
                             speed_up=speed_up)
 
 
-def main_fixel_map(fixelWeights):
+def main_fixel_map(fixel_weights):
     '''
     Ouputs a map representing the most aligned fixel.
 
     Parameters
     ----------
-    fixelWeights : 4-D array of shape (x,y,z,K)
+    fixel_weights : 4-D array of shape (x,y,z,K)
         Array containing the relative weights of the K fixels in each voxel.
 
     Returns
@@ -818,9 +816,9 @@ def main_fixel_map(fixelWeights):
 
     '''
 
-    mainFixelMap = np.zeros(fixelWeights.shape[0:3], dtype='float32')
-    mainFixelMap[fixelWeights[:, :, :, 0] > fixelWeights[:, :, :, 1]] = 1
-    mainFixelMap[fixelWeights[:, :, :, 0] < fixelWeights[:, :, :, 1]] = 2
+    mainFixelMap = np.zeros(fixel_weights.shape[0:3], dtype='float32')
+    mainFixelMap[fixel_weights[:, :, :, 0] > fixel_weights[:, :, :, 1]] = 1
+    mainFixelMap[fixel_weights[:, :, :, 0] < fixel_weights[:, :, :, 1]] = 2
 
     return mainFixelMap
 
@@ -855,17 +853,17 @@ def tract_to_streamlines(trk) -> list:
     return sList
 
 
-def get_streamline_weights(trk, tList: list,
+def get_streamline_weights(trk, peaks,
                            method_list: list = ['vol', 'cfo', 'ang', 'raw'],
-                           streamline_number: int = 0, fList: list = []):
+                           streamline_number: int = 0, ff=None,
+                           subsegment: int = 1):
     '''
-    TODO : modify with new get_fixel_weight architecture
 
     Parameters
     ----------
     trk : tractogram
         Content of a .trk file
-    tList : list
+    peaks : 4-D array of shape (x,y,z,3,k)
         List of 4-D arrays of shape (x,y,z,3) containing peak information.
     method_list : list, optional
         List of methods used for the relative contribution, either;
@@ -891,88 +889,49 @@ def get_streamline_weights(trk, tList: list,
     '''
 
     sList = tract_to_streamlines(trk)
-    streamline = sList[streamline_number]
+    point = sList[streamline_number]
 
-    voxelStream = []
     segmentStream = []
 
     for i in range(len(method_list)):
-        voxelStream.append({})
         segmentStream.append([])
 
-    previous_point = streamline[0, :]
+    # Creating subpoints
+    subpoint = np.linspace(point, np.roll(point, -1, axis=0),
+                           subsegment+1, axis=1)
+    point = subpoint[:, :-1, :].reshape(point.shape[0]*subsegment, 3)
 
-    for i in range(1, streamline.shape[0]):
+    # Computing streamline segment vectors
+    next_point = np.roll(point, -1*subsegment, axis=0)
+    vs = next_point-point
 
-        point = streamline[i, :]
+    # Getting fixel vectors
+    x, y, z = point.astype(np.int32).T
+    vf = peaks[x, y, z, :, :].astype(np.float32)
 
-        voxList = compute_subsegments(previous_point, point)
+    # Null fixel vectors
+    nf = np.sum(peaks[x, y, z, 1:, :], axis=1) == 0
 
-        vs = (point-previous_point)   # Tract deltas
+    for j, method in enumerate(method_list):
 
-        for x, y, z in voxList:
+        if method == 'vol':
+            coef = fraction_weighting(point, nf, ff)/subsegment
+        elif method == 'cfo':
+            coef = closest_fixel_only(vs, vf, nf)/subsegment
+        elif method == 'ang':
+            coef = angular_weighting(vs, vf, nf)/subsegment
+        elif method == 'raw':
+            coef = relative_angular_weighting(vs, vf, nf)/subsegment
 
-            x, y, z = (int(x), int(y), int(z))
+        segmentStream[j] = np.concatenate((x[..., np.newaxis], y[..., np.newaxis],
+                                           z[..., np.newaxis], coef), axis=1)
 
-            vList = []
-            nList = []    # Null list, boolean
-
-            for k, t in enumerate(tList):
-
-                v = t[x, y, z, :]
-                vList.append(v)
-
-                # Fingerprint : null vector = [0,0,0]
-                # Diamond : null vector = [1,0,0]
-                nList.append(all(v == 0 for v in v[1:]))
-
-                if len(fList) > 0:    # If fractions available and ==0
-                    if fList[k][x, y, z] == 0:
-                        nList[k] = True
-
-            if all(nList):       # If no tensor in voxel
-                continue
-
-            for j, method in enumerate(method_list):
-
-                if method == 'cfo':     # Closest-fixel-only
-                    coefList = closest_fixel_only(vs, vList, nList)
-                elif method == 'vol':   # Relative volume fraction
-                    if len(vList) != len(fList):
-                        warnings.warn("Warning : The number of fixels ("
-                                      + str(len(vList))
-                                      + ") does not correspond to the number "
-                                      + " of fractions given ("+str(len(fList))
-                                      + ").")
-                    coefList = fraction_weighting(
-                        (x, y, z), vList, nList, fList)
-                elif method == 'raw':
-                    coefList = relative_angular_weighting(vs, vList, nList)
-                else:   # Angular weighting
-                    coefList = angular_weighting(vs, vList, nList)
-
-                s = []
-                for coef in coefList:
-                    s.append(voxList[(x, y, z)]*coef)
-                segmentStream[j].append([(x, y, z)]+s)
-
-                if (x, y, z) not in voxelStream[j]:
-                    voxelStream[j][(x, y, z)] = []
-                    for k, coef in enumerate(coefList):
-                        voxelStream[j][(x, y, z)].append(
-                            voxList[(x, y, z)]*coef)
-                else:
-                    for k, coef in enumerate(coefList):
-                        voxelStream[j][(x, y, z)][k] += voxList[(x, y, z)]*coef
-
-        previous_point = point
-
-    return (voxelStream, segmentStream)
+    return segmentStream
 
 
-def plot_streamline_metrics(trk, tList: list, metric_maps: list,
+def plot_streamline_metrics(trk, peaks, metric_maps,
                             method_list: list = ['vol', 'cfo', 'ang', 'raw'],
-                            streamline_number: int = 0, fList: list = [],
+                            streamline_number: int = 0, ff=None,
                             segment_wise: bool = True, groundTruth_map=None,
                             barplot: bool = True):
     '''
@@ -983,10 +942,10 @@ def plot_streamline_metrics(trk, tList: list, metric_maps: list,
     ----------
     trk : tractogram
         Content of a .trk file
-    tList : list
+    peaks : 4-D array of shape (x,y,z,3,k)
         List of 4-D arrays of shape (x,y,z,3) containing peak information.
-    metric_maps : list
-        List of K 3-D arrays of shape (x,y,z) containing metric estimations.
+    metric_maps : 4-D array of shape (x,y,z,3,k)
+        List of K 4-D arrays of shape (x,y,z) containing metric estimations.
     method_list : list, optional
         List of methods used for the relative contribution, either;
             'ang' : angular weighting
@@ -1013,49 +972,31 @@ def plot_streamline_metrics(trk, tList: list, metric_maps: list,
 
     '''
 
-    voxel_s, segment_s = get_streamline_weights(trk, tList,
-                                                method_list=method_list,
-                                                streamline_number=streamline_number,
-                                                fList=fList)
+    streams = get_streamline_weights(trk, peaks, method_list=method_list,
+                                     streamline_number=streamline_number,
+                                     ff=ff)
 
     import matplotlib.pyplot as plt
     fig, axs = plt.subplots(1)
 
-    if segment_wise:
-        streams = segment_s
-    else:
-        streams = voxel_s
-
     for i, method in enumerate(method_list):
-
-        stream = streams[i]
 
         mList = []
         mgtList = []
         vList = []
 
-        for j, s in enumerate(stream):
+        for j in range(streams[i].shape[0]):
 
-            if segment_wise:
-                voxel = s.pop(0)
-                weight_maps = s
-            else:
-                voxel = s
-                weight_maps = stream[voxel]
+            x, y, z = streams[i][j, :3].astype(np.int32)
+            coef = streams[i][j, 3:]
 
-            vList.append(str(j)+str(voxel))
-
-            tot_weight = 0
-            m = 0
-            for k in range(len(metric_maps)):
-                m += weight_maps[k]*metric_maps[k][voxel]
-                tot_weight += weight_maps[k]
-            m /= tot_weight
+            m = np.sum(coef*metric_maps[x, y, z, :])/np.sum(coef)
 
             mList.append(m)
+            vList.append(str(j)+str([x, y, z]))
 
             if groundTruth_map is not None:
-                mgtList.append(groundTruth_map[voxel])
+                mgtList.append(groundTruth_map[x, y, z])
 
         axs.plot(vList, mList, label=method)
 
@@ -1333,34 +1274,32 @@ def total_segment_length(fixel_weights):
     return sc
 
 
-def get_microstructure_map(fixelWeights, metricMapList: list):
+def get_microstructure_map(fixel_weights, metric_maps):
     '''
     Returns a 3D volume representing the microstructure map
 
     Parameters
     ----------
-    fixelWeights : 4-D array of shape (x,y,z,K)
+    fixel_weights : 4-D array of shape (x,y,z,K)
         Array containing the relative weights of the K fixels in each voxel.
-    metricMapList : list
+    metric_maps : 4-D array of shape (x,y,z,K)
         List of K 3-D arrays of shape (x,y,z) containing metric estimations.
 
     Returns
     -------
-    microMap : 3-D array of shape (x,y,z)
+    micro_map : 3-D array of shape (x,y,z)
         Array containing the microstructure map
 
     '''
 
-    microMap = np.zeros(metricMapList[0].shape, dtype='float32')
-    total_weight = np.sum(fixelWeights, axis=len(fixelWeights.shape)-1)
+    total_weight = np.sum(fixel_weights, axis=len(fixel_weights.shape)-1)
+    # total_weight = np.stack((total_weight, total_weight), axis=3)
 
-    for k, metricMap in enumerate(metricMapList):
-        slic = tuple([slice(None)]*(len(fixelWeights.shape)-1))+(k,)
-        microMap += metricMap*fixelWeights[slic]
+    micro_map = np.sum(metric_maps*fixel_weights, axis=-1)
 
-    microMap[total_weight != 0] /= total_weight[total_weight != 0]
+    micro_map[total_weight != 0] /= total_weight[total_weight != 0]
 
-    return microMap
+    return micro_map
 
 
 def get_weighted_mean(microstructure_map, fixel_weights,
@@ -1412,14 +1351,14 @@ def get_weighted_mean(microstructure_map, fixel_weights,
     return mean, dev
 
 
-def get_weighted_sums(metricMapList: list, fixelWeightList: list):
+def get_weighted_sums(metric_maps: list, fixelWeightList: list):
     '''
     TODO: unify with get_microstructure_map and total_segment_length
     Outdated.
 
     Parameters
     ----------
-    metricMapList : list
+    metric_maps : list
         List of K 3-D arrays of shape (x,y,z) containing metric estimations.
     fixelWeightList : list
         List containing the relative weights of the K fixels in each voxel.
@@ -1428,30 +1367,30 @@ def get_weighted_sums(metricMapList: list, fixelWeightList: list):
     -------
     weightedMetricSum : 3-D array of shape (x,y,z)
         Microstructure map.
-    fixelWeightSum : 3-D array of shape (x,y,z)
+    fixel_weightsum : 3-D array of shape (x,y,z)
         Total length map.
     M : int
         Number of non-zero pixels in both metric maps.
 
     '''
 
-    K = len(metricMapList)
-    fixelWeightSum = np.zeros(fixelWeightList[0].shape, dtype='float32')
+    K = len(metric_maps)
+    fixel_weightsum = np.zeros(fixelWeightList[0].shape, dtype='float32')
     M = 0
 
     for fixelWeight in fixelWeightList:
-        fixelWeightSum += fixelWeight
+        fixel_weightsum += fixelWeight
         M += np.count_nonzero(fixelWeight)
 
-    weightedMetricSum = np.zeros(metricMapList[0].shape, dtype='float32')
+    weightedMetricSum = np.zeros(metric_maps[0].shape, dtype='float32')
 
     for k in range(K):
-        weightedMetricSum += metricMapList[k]*fixelWeightList[k]
+        weightedMetricSum += metric_maps[k]*fixelWeightList[k]
 
-    return weightedMetricSum, fixelWeightSum, M
+    return weightedMetricSum, fixel_weightsum, M
 
 
-def weighted_mean_dev(metricMapList: list, fixelWeightList: list,
+def weighted_mean_dev(metric_maps: list, fixelWeightList: list,
                       retainAllValues: bool = False, weighting: str = 'tsl'):
     '''
     Return the weighted means and standard deviation from list of metric maps
@@ -1460,7 +1399,7 @@ def weighted_mean_dev(metricMapList: list, fixelWeightList: list,
 
     Parameters
     ----------
-    metricMapList : list
+    metric_maps : list
         List of K 3-D arrays of shape (x,y,z) containing metric estimations.
     fixelWeightList : list
         List containing the relative weights of the K fixels in each voxel.
@@ -1482,26 +1421,26 @@ def weighted_mean_dev(metricMapList: list, fixelWeightList: list,
 
     '''
 
-    K = len(metricMapList)
+    K = len(metric_maps)
 
-    weightedMetricSum, fixelWeightSum, M = get_weighted_sums(
-        metricMapList, fixelWeightList)
-    weightSum = np.sum(fixelWeightSum)
+    weightedMetricSum, fixel_weightsum, M = get_weighted_sums(
+        metric_maps, fixelWeightList)
+    weightSum = np.sum(fixel_weightsum)
 
-    Max = np.max(weightedMetricSum[fixelWeightSum !=
-                 0]/fixelWeightSum[fixelWeightSum != 0])
-    Min = np.min(weightedMetricSum[fixelWeightSum !=
-                 0]/fixelWeightSum[fixelWeightSum != 0])
+    Max = np.max(weightedMetricSum[fixel_weightsum !=
+                 0]/fixel_weightsum[fixel_weightsum != 0])
+    Min = np.min(weightedMetricSum[fixel_weightsum !=
+                 0]/fixel_weightsum[fixel_weightsum != 0])
 
     weightedMetrics = np.array(np.nansum((weightedMetricSum)/weightSum))
     weightedMean = float(np.mean(weightedMetrics[weightedMetrics > 0]).real)
 
-    weightedVarSum = np.zeros(metricMapList[0].shape)
+    weightedVarSum = np.zeros(metric_maps[0].shape)
 
     # weightedDev=np.sqrt(np.nansum(weightedVarSum[weightedMetrics>0])/weightSum)
 
     for k in range(K):
-        weightedVarSum += np.square(metricMapList[k] -
+        weightedVarSum += np.square(metric_maps[k] -
                                     weightedMean)*fixelWeightList[k]
 
     weightedDev = np.sqrt(np.nansum(weightedVarSum)/(weightSum*(M-1)/M))
@@ -1510,7 +1449,7 @@ def weighted_mean_dev(metricMapList: list, fixelWeightList: list,
 
         weightedList = []
         wMf = weightedMetricSum.flatten()
-        mSf = fixelWeightSum.flatten()
+        mSf = fixel_weightsum.flatten()
 
         for i, value in enumerate(list(wMf)):
             if mSf[i] != 0:
@@ -1550,7 +1489,7 @@ if __name__ == '__main__':
     metric_maps = [nib.load(data_dir+patient+'_mf_fvf_f0.nii.gz').get_fdata(),
                    nib.load(data_dir+patient+'_mf_fvf_f1.nii.gz').get_fdata()]
 
-    microMap = get_microstructure_map(fixel_weights, metric_maps)
+    micro_map = get_microstructure_map(fixel_weights, metric_maps)
 
     weightedMean, weightedDev, _, [Min, Max] = weighted_mean_dev(
         metric_maps, [fixel_weights[:, :, :, 0], fixel_weights[:, :, :, 1]])

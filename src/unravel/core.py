@@ -174,13 +174,16 @@ def closest_fixel_only(vs, vf: list, nf: list):
 
     '''
 
+    if len(vf.shape) <= 2:
+        vf = vf[..., np.newaxis]
+
     K = vf.shape[2]
 
     angle_diff = angle_difference(vs, vf)
     ang_coef = (angle_diff == np.nanmin(angle_diff, axis=1)
-                [:, None]).astype(int)
+                [:, None]).astype(np.int32)
 
-    ang_coef *= (1-nf)
+    ang_coef *= (1-nf.astype(np.int32))
     s = np.sum(ang_coef, axis=1)
     ang_coef = ang_coef/np.stack((s,)*K, axis=1)
 
@@ -207,6 +210,9 @@ def angular_weighting(vs, vf, nf=None):
         List of the k coefficients
 
     '''
+
+    if len(vf.shape) <= 2:
+        vf = vf[..., np.newaxis]
 
     K = vf.shape[2]
 
@@ -249,6 +255,9 @@ def relative_angular_weighting(vs, vf, nf):
         List of the k coefficients
 
     '''
+
+    if len(vf.shape) <= 2:
+        vf = vf[..., np.newaxis]
 
     K = vf.shape[2]
 

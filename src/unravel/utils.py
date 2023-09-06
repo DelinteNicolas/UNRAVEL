@@ -74,6 +74,9 @@ def peaks_to_RGB(peaks, frac=None, fvf=None, order: str = 'rgb'):
 
     K = peaks.shape[-1]
 
+    if frac is None and fvf is None:
+        normalize = True
+
     if frac is None:
         frac = np.ones(peaks.shape[:3]+(K,))/K
     frac = np.stack((frac,)*3, axis=3)
@@ -85,10 +88,8 @@ def peaks_to_RGB(peaks, frac=None, fvf=None, order: str = 'rgb'):
     rgb = np.sum(abs(peaks)*frac*fvf, axis=-1)
 
     # Normalize
-    if frac is None and fvf is None:
+    if normalize:
         rgb = normalize_color(rgb, norm_all_voxels=True)
-    else:
-        rgb = normalize_color(rgb)
 
     # Color order
     if order == 'brg':
@@ -315,40 +316,44 @@ def get_streamline_density(trk, resolution_increase: int = 1,
     '''
 
     streams = trk.streamlines
-    point = streams.get_data()*resolution_increase
-
-    density = np.zeros(trk._dimensions*resolution_increase, dtype=np.float32)
-    rgb = np.zeros(tuple(trk._dimensions*resolution_increase)+(3,),
-                   dtype=np.float32)
+    point = streams.get_data().astype(np.float32)*resolution_increase
 
     # Creating subpoints
     subpoint = np.linspace(point, np.roll(point, -1, axis=0),
                            subsegment+1, axis=1)
     point = subpoint[:, :-1, :].reshape(point.shape[0]*subsegment, 3)
 
-    # Computing streamline segment vectors
-    next_point = np.roll(point, -1, axis=0)
-    vs = next_point-point
-
     # Getting fixel vectors
     x, y, z = point.astype(np.int32).T
-
-    coef = np.ones(x.shape)
 
     # Removing streamline end points
     ends = (streams._offsets+streams._lengths-1)*subsegment
     idx = np.linspace(0, subsegment-1, subsegment, dtype=np.int32)
     ends = ends[:, np.newaxis] + idx
     ends = ends.flatten()
-    coef[ends] = 0
-    vs[ends, :] = [0, 0, 0]
-
-    np.add.at(density, (x, y, z), coef)
-    np.add.at(rgb, (x, y, z), abs(vs))
 
     if color:
-        return rgb
+        # Computing streamline segment vectors
+        next_point = np.roll(point, -1, axis=0)
+        vs = next_point-point
+
+        vs[ends, :] = [0, 0, 0]
+
+        rgb = np.zeros(tuple(trk._dimensions*resolution_increase)+(3,),
+                       dtype=np.float32)
+        np.add.at(rgb, (x, y, z), abs(vs))
+
+        return normalize_color(rgb, norm_all_voxels=True)
+
     else:
+        coef = np.ones(x.shape, dtype=np.float32)
+
+        coef[ends] = 0
+
+        density = np.zeros(trk._dimensions*resolution_increase,
+                           dtype=np.float32)
+        np.add.at(density, (x, y, z), coef)
+
         return density
 
 
@@ -372,11 +377,11 @@ def normalize_color(rgb, norm_all_voxels: bool = False):
 
     if norm_all_voxels:
         norm = np.linalg.norm(rgb, axis=3)
-        norm = np.stack((norm,)*3, axis=3)
-        norm = np.divide(rgb, norm,
+        norm = np.stack((norm,)*3, axis=3, dtype=np.float32)
+        norm = np.divide(rgb, norm, dtype=np.float32,
                          where=np.sum(rgb, axis=3, keepdims=True) != 0)
     else:
-        norm = rgb/np.max(rgb)
+        norm = (rgb/np.max(rgb)).astype(np.float32)
 
     return norm
 
@@ -421,7 +426,7 @@ def plot_streamline_trajectory(trk, resolution_increase: int = 1,
                                      resolution_increase=resolution_increase)
 
     if color:
-        density = normalize_color(density, norm_all_voxels=norm_all_voxels)
+        # density = normalize_color(density, norm_all_voxels=norm_all_voxels)
         density = (density*255).astype('uint8')
 
     sList = tract_to_streamlines(trk)

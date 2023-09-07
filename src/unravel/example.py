@@ -120,23 +120,23 @@ if __name__ == '__main__':
                                color=True, norm_all_voxels=True,
                                subsegment=100)
 
-    # import nibabel as nib
-    # from unravel.utils import get_streamline_density
-    # from unravel.viz import overlap_volumes, convert_to_gif
+    import nibabel as nib
+    from unravel.utils import get_streamline_density
+    from unravel.viz import overlap_volumes, convert_to_gif
 
-    # trk = load_tractogram('C:/Users/nicol/Desktop/NT1_track_msmt.trk', 'same')
-    # trk.to_vox()
-    # trk.to_corner()
+    trk = load_tractogram('C:/Users/nicol/Desktop/NT1_track_msmt.trk', 'same')
+    trk.to_vox()
+    trk.to_corner()
 
-    # rgb = get_streamline_density(trk, resolution_increase=6, color=True,
-    #                              subsegment=3)
-    # t1 = nib.load(
-    #     'C:/Users/nicol/Documents/Doctorat/Data/Rescan/Raw/NT1_T1_diffusion.nii.gz').get_fdata()
+    rgb = get_streamline_density(trk, resolution_increase=8, color=True,
+                                 subsegment=10)
+    t1 = nib.load(
+        'C:/Users/nicol/Documents/Doctorat/Data/Rescan/Raw/NT1_T1_diffusion.nii.gz').get_fdata()
 
     # rgb = overlap_volumes([rgb, t1], order=0)
 
-    # convert_to_gif(rgb, output_folder='C:/Users/nicol/Desktop/temp',
-    #                transparency=False, keep_frames=False, extension='gif', axis=2)
+    convert_to_gif(rgb, output_folder='C:/Users/nicol/Desktop/temp',
+                   transparency=False, keep_frames=False, extension='webp', axis=1)
 
     from unravel.viz import plot_alpha_surface_matplotlib, plot_alpha_surface_pyvista
 

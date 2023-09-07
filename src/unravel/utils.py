@@ -322,6 +322,7 @@ def get_streamline_density(trk, resolution_increase: int = 1,
     subpoint = np.linspace(point, np.roll(point, -1, axis=0),
                            subsegment+1, axis=1)
     point = subpoint[:, :-1, :].reshape(point.shape[0]*subsegment, 3)
+    del subpoint
 
     # Getting fixel vectors
     x, y, z = point.astype(np.int32).T
@@ -330,14 +331,17 @@ def get_streamline_density(trk, resolution_increase: int = 1,
     ends = (streams._offsets+streams._lengths-1)*subsegment
     idx = np.linspace(0, subsegment-1, subsegment, dtype=np.int32)
     ends = ends[:, np.newaxis] + idx
+    del idx
     ends = ends.flatten()
 
     if color:
         # Computing streamline segment vectors
         next_point = np.roll(point, -1, axis=0)
         vs = next_point-point
+        del point, next_point
 
         vs[ends, :] = [0, 0, 0]
+        del ends
 
         rgb = np.zeros(tuple(trk._dimensions*resolution_increase)+(3,),
                        dtype=np.float32)

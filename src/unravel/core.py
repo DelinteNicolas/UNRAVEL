@@ -932,7 +932,8 @@ def get_streamline_weights(trk, peaks,
         elif method == 'raw':
             coef = relative_angular_weighting(vs, vf, nf)/subsegment
 
-        segmentStream[j] = np.concatenate((x[..., np.newaxis], y[..., np.newaxis],
+        segmentStream[j] = np.concatenate((x[..., np.newaxis],
+                                           y[..., np.newaxis],
                                            z[..., np.newaxis], coef), axis=1)
 
     return segmentStream

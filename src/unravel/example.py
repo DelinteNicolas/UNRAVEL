@@ -112,36 +112,3 @@ if __name__ == '__main__':
     plot_streamline_metrics(trk, peaks, metric_maps,
                             method_list=['vol', 'cfo', 'ang'],
                             streamline_number=stream_num, ff=fList)
-
-    # ----------------------------------------------------
-
-    plot_streamline_trajectory(trk, resolution_increase=2,
-                               streamline_number=500, axis=1,
-                               color=True, norm_all_voxels=True,
-                               subsegment=100)
-
-    import nibabel as nib
-    from unravel.utils import get_streamline_density
-    from unravel.viz import overlap_volumes, convert_to_gif
-
-    trk = load_tractogram('C:/Users/nicol/Desktop/NT1_track_msmt.trk', 'same')
-    trk.to_vox()
-    trk.to_corner()
-
-    rgb = get_streamline_density(trk, resolution_increase=8, color=True,
-                                 subsegment=10)
-    t1 = nib.load(
-        'C:/Users/nicol/Documents/Doctorat/Data/Rescan/Raw/NT1_T1_diffusion.nii.gz').get_fdata()
-
-    # rgb = overlap_volumes([rgb, t1], order=0)
-
-    convert_to_gif(rgb, output_folder='C:/Users/nicol/Desktop/temp',
-                   transparency=False, keep_frames=False, extension='webp', axis=1)
-
-    from unravel.viz import plot_alpha_surface_matplotlib, plot_alpha_surface_pyvista
-
-    vf = np.array([[1, 2, 0], [1, 0, 0], [0, 2, 1], [5, 3, 6]]).T
-    vf = vf[np.newaxis, ...]
-
-    plot_alpha_surface_matplotlib(vf, show_v=True, method='ang')
-    plot_alpha_surface_pyvista(vf, show_v=True, method='ang')

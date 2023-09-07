@@ -13,18 +13,20 @@ Fixel weights maps can be obtained using the :meth:`unravel.core.get_fixel_weigh
 	t0 = nib.load("peak_file_0.nii.gz").get_fdata()
 	t1 = nib.load("peak_file_1.nii.gz").get_fdata()
 
+	peaks = np.stack((t0,t1),axis=3)
+
 	trk = load_tractogram("trk_file.trk", 'same')
 	trk.to_vox()
 	trk.to_corner()
 
-	fixel_weights,_,_ = get_fixel_weight(trk, [t0, t1])
+	fixel_weights = get_fixel_weight(trk, peaks)
 
 Example
 ----------------
 
 A complete example code of the main functions is available in the :class:`unravel.example` file.
 
-.. literalinclude:: ../unravel/example.py
+.. literalinclude:: ../src/unravel/example.py
     :linenos:
     :language: python
     :lines: 13-
@@ -54,7 +56,7 @@ Short videos can be created using the :meth:`unravel.viz.convert_to_gif` functio
 
 	# rgb = overlap_volumes([rgb, t1], order=0)
 
-	convert_to_gif(rgb, output_folder='output/path', transparency=True, keep_frames=False,extension='gif', axis=0)
+	convert_to_gif(rgb, output_folder='output/path', transparency=False, keep_frames=False,extension='gif', axis=2)
 
 .. image:: imgs/rgb3.webp
 	:width: 600
@@ -65,10 +67,11 @@ Visualize relative contributions to a streamline segment
 
 3D plots of the relative contributions of k fixels to a streamline segment s can be visualizes for every method using the :meth:`unravel.viz.plot_alpha_surface_matplotlib` to easily compare the different contributions::
 
-	vList = [[1, 2, 0], [1, 0, 0], [0, 2, 1], [5, 3, 6]]
+	vf = np.array([[1, 2, 0], [1, 0, 0], [0, 2, 1], [5, 3, 6]]).T
+	vf = vf[np.newaxis, ...]
 
-     	plot_alpha_surface_matplotlib(vList, show_v=True, method='raw')
-      	plot_alpha_surface_pyvista(vList, show_v=True, method='raw')
+     	plot_alpha_surface_matplotlib(vf, show_v=True, method='raw')
+      	plot_alpha_surface_pyvista(vf, show_v=True, method='raw')
 
 .. image:: imgs/alpha_matplot.png
 	:width: 300

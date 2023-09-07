@@ -157,81 +157,16 @@ def convert_to_gif(array, output_folder: str, extension: str = 'webp',
                    disposal=disposal)
 
 
-def compute_alpha_surface(vList: list, method: str = 'raw',
-                          weighting_function=None):
-    '''
-    Computes the mesh for the alpha coefficient surface based on the vectors of
-    vList.
-
-    Parameters
-    ----------
-    vList : list
-        List of the k vectors corresponding to each fiber population
-    method : str, optional
-        Method used for the relative contribution, either;
-            'ang' : angular weighting
-            'raw' : relative angular weighting
-            'cfo' : closest-fixel-only
-            'vol' : relative volume weighting.
-        The default is 'raw'.
-    weighing_function : function, optional
-        Overwrites the weighing function given in method to this method. Used
-        for testing. The default is None.
-
-    Returns
-    -------
-    x : array of float64 of size (200,200)
-        Mesh X coordinates.
-    y : array of float64 of size (200,200)
-        Mesh Y coordinates.
-    z : array of float64 of size (200,200)
-        Mesh Z coordinates.
-    coef : array of float64 of size (200,200)
-        Alpha coefficients.
-
-    '''
-
-    nList = [0]*len(vList)
-
-    u = np.linspace(0, 2 * np.pi, 200)
-    v = np.linspace(0, np.pi, 200)
-
-    x = np.outer(np.cos(u), np.sin(v))
-    y = np.outer(np.sin(u), np.sin(v))
-    z = np.outer(np.ones(np.size(u)), np.cos(v))
-
-    coef = x.copy()
-
-    for xyz in np.ndindex(x.shape):
-
-        if weighting_function is not None:
-            a = weighting_function([x[xyz], y[xyz], z[xyz]], vList, nList)[0]
-        elif method == 'raw':
-            a = relative_angular_weighting([x[xyz], y[xyz], z[xyz]],
-                                           vList, nList)[0]
-        elif method == 'cfo':
-            a = closest_fixel_only([x[xyz], y[xyz], z[xyz]], vList, nList)[0]
-        else:
-            a = angular_weighting([x[xyz], y[xyz], z[xyz]], vList, nList)[0]
-
-        x[xyz] *= (a+1)
-        y[xyz] *= (a+1)
-        z[xyz] *= (a+1)
-        coef[xyz] = a
-
-    return x, y, z, coef
-
-
-def plot_alpha_surface_matplotlib(vList: list, method: str = 'raw',
+def plot_alpha_surface_matplotlib(vf: list, method: str = 'raw',
                                   weighting_function=None,
                                   show_v: bool = False):
     '''
     Computes and plots the mesh for the alpha coefficient surface based on the
-    vectors of vList.
+    vectors of vf.
 
     Parameters
     ----------
-    vList : list
+    vf : list
         List of the k vectors corresponding to each fiber population
     method : str, optional
         Method used for the relative contribution, either;
@@ -252,36 +187,37 @@ def plot_alpha_surface_matplotlib(vList: list, method: str = 'raw',
 
     '''
 
-    x, y, z, coef = compute_alpha_surface(vList, method=method,
+    x, y, z, coef = compute_alpha_surface(vf, method=method,
                                           weighting_function=weighting_function)
 
     fig = plt.figure()
     ax = fig.add_subplot(projection='3d')
-    ax.plot_surface(x, y, z, facecolors=cm.plasma(coef), rstride=1, cstride=1)
+    ax.plot_surface(x, y, z, facecolors=cm.plasma(
+        coef), rstride=1, cstride=1)
     if show_v:
-        for j, v in enumerate(vList):
-            v = v/np.linalg.norm(v)*2.5
+        for j in range(vf.shape[2]):
+            v = vf[:, :, j]/np.linalg.norm(vf[:, :, j], axis=1)*2.5
             if j == 0:
-                ax.plot([-v[0], v[0]], [-v[1], v[1]], zs=[-v[2], v[2]],
-                        color='orange')
+                ax.plot([-v[0, 0], v[0, 0]], [-v[0, 1], v[0, 1]],
+                        zs=[-v[0, 2], v[0, 2]], color='orange')
             else:
-                ax.plot([-v[0], v[0]], [-v[1], v[1]], zs=[-v[2], v[2]],
-                        color='white')
+                ax.plot([-v[0, 0], v[0, 0]], [-v[0, 1], v[0, 1]],
+                        zs=[-v[0, 2], v[0, 2]], color='white')
     ax.set_aspect('equal')
 
     plt.show()
 
 
-def plot_alpha_surface_pyvista(vList: list, method: str = 'raw',
+def plot_alpha_surface_pyvista(vf, method: str = 'raw',
                                weighting_function=None,
                                show_v: bool = False):
     '''
     Computes and plots the mesh for the alpha coefficient surface based on the
-    vectors of vList.
+    vectors of vf.
 
     Parameters
     ----------
-    vList : list
+    vf : list
         List of the k vectors corresponding to each fiber population
     method : str, optional
         Method used for the relative contribution, either;
@@ -302,7 +238,7 @@ def plot_alpha_surface_pyvista(vList: list, method: str = 'raw',
 
     '''
 
-    x, y, z, coef = compute_alpha_surface(vList, method=method,
+    x, y, z, coef = compute_alpha_surface(vf, method=method,
                                           weighting_function=weighting_function)
 
     pc = pyvista.StructuredGrid(x, y, z)
@@ -311,17 +247,88 @@ def plot_alpha_surface_pyvista(vList: list, method: str = 'raw',
                     smooth_shading=True, show_scalar_bar=False)
     if show_v:
         points = []
-        for j, v in enumerate(vList):
+        for j in range(vf.shape[2]):
+            v = vf[:, :, j]
+            v = np.squeeze(v)
             v = v/np.linalg.norm(v)*2.5
-            points.append([i*-1 for i in v])
+            points.append(v*-1)
             points.append(v)
             if j == 0:
-                _ = pl.add_lines(np.array(points), label=str(v), color='orange')
+                _ = pl.add_lines(np.array(points),
+                                 label=str(v), color='orange')
             else:
-                _ = pl.add_lines(np.array(points), label=str(v), color='white')
+                _ = pl.add_lines(np.array(points),
+                                 label=str(v), color='white')
             points = []
         pl.add_legend()
     pl.show()
+
+
+def compute_alpha_surface(vf, method: str = 'raw',
+                          weighting_function=None, mesh_size: int = 200):
+    '''
+    Computes the mesh for the alpha coefficient surface based on the vectors of
+    vf.
+
+    Parameters
+    ----------
+    vf : list
+        List of the k vectors corresponding to each fiber population
+    method : str, optional
+        Method used for the relative contribution, either;
+            'ang' : angular weighting
+            'raw' : relative angular weighting
+            'cfo' : closest-fixel-only
+            'vol' : relative volume weighting.
+        The default is 'raw'.
+    weighing_function : function, optional
+        Overwrites the weighing function given in method to this method. Used
+        for testing. The default is None.
+
+    Returns
+    -------
+    x : array of float64 of size ( mesh_size, mesh_size)
+        Mesh X coordinates.
+    y : array of float64 of size ( mesh_size, mesh_size)
+        Mesh Y coordinates.
+    z : array of float64 of size ( mesh_size, mesh_size)
+        Mesh Z coordinates.
+    coef : array of float64 of size ( mesh_size, mesh_size)
+        Alpha coefficients.
+
+    '''
+
+    nf = np.zeros((1,)+(vf.shape[0],))
+
+    u = np.linspace(0, 2 * np.pi,  mesh_size)
+    v = np.linspace(0, np.pi,  mesh_size)
+
+    x = np.outer(np.cos(u), np.sin(v)).flatten()
+    y = np.outer(np.sin(u), np.sin(v)).flatten()
+    z = np.outer(np.ones(np.size(u)), np.cos(v)).flatten()
+
+    vs = np.stack((x, y, z), axis=1)
+
+    if weighting_function is not None:
+        a = weighting_function(vs, vf, nf)[:, 0]
+    elif method == 'raw':
+        a = relative_angular_weighting(vs, vf, nf)[:, 0]
+    elif method == 'cfo':
+        a = closest_fixel_only(vs, vf, nf)[:, 0]
+    else:
+        a = angular_weighting(vs, vf, nf)[:, 0]
+
+    x *= (a+1)
+    y *= (a+1)
+    z *= (a+1)
+    coef = a
+
+    x = np.reshape(x, (mesh_size,  mesh_size))
+    y = np.reshape(y, (mesh_size,  mesh_size))
+    z = np.reshape(z, (mesh_size,  mesh_size))
+    coef = np.reshape(coef, (mesh_size,  mesh_size))
+
+    return x, y, z, coef
 
 
 def export_alpha_surface(vList: list, output_path: str, method: str = 'raw',

@@ -5,7 +5,6 @@ Created on Sat Jun  4 22:17:13 2022
 @author: DELINTE Nicolas
 """
 
-import warnings
 import numpy as np
 from dipy.io.streamline import load_tractogram
 
@@ -43,11 +42,10 @@ def tract_to_ROI(trk_file: str):
     return ROI
 
 
-def peaks_to_RGB(peaksList: list, fracList: list = None, fvfList: list = None,
-                 order: str = 'rgb'):
+def peaks_to_RGB(peaks, frac=None, fvf=None, order: str = 'rgb'):
     '''
     Returns a RGB map of shape (x,y,z,3) representing the main direction of
-    of the peaks. Optionnaly scaled by fraction and/or fiber volume fraction.
+    of the peaks. Optionaly scaled by fraction and/or fiber volume fraction.
 
     Parameters
     ----------
@@ -70,49 +68,28 @@ def peaks_to_RGB(peaksList: list, fracList: list = None, fvfList: list = None,
 
     '''
 
-    # Safety net
-    if type(peaksList) != list:
-        if len(peaksList.shape) == 5:
-            peaksArray = peaksList.copy()
-            peaksList = []
-            for k in range(peaksArray.shape[4]):
-                peaksList.append(peaksArray[:, :, :, :, k])
-        else:
-            peaksList = [peaksList]
+    peaks = np.nan_to_num(peaks)
+    if len(peaks.shape) <= 4:
+        peaks = peaks[..., np.newaxis]
 
-    K = len(peaksList)
-    dim = len(peaksList[0].shape[:-1])
+    K = peaks.shape[-1]
 
-    peak_count = np.zeros(peaksList[0].shape[:-1])
+    if frac is None and fvf is None:
+        normalize = True
 
-    for k in range(K):
-        peaksList[k] = np.nan_to_num(peaksList[k])
-        peak_count += np.where(np.sum(peaksList[k], axis=dim) != 0, 1, 0)
+    if frac is None:
+        frac = np.ones(peaks.shape[:3]+(K,))/K
+    frac = np.stack((frac,)*3, axis=3)
 
-    if fracList is None:
-        fracList = []
-        for k in range(K):
-            fracList.append(np.ones(peaksList[0].shape[:-1]))
+    if fvf is None:
+        fvf = np.ones(peaks.shape[:3]+(K,))
+    fvf = np.stack((fvf,)*3, axis=3)
 
-    if fvfList is None:
-        fvfList = []
-        for k in range(K):
-            fvfList.append(np.ones(peaksList[0].shape[:-1]))
+    rgb = np.sum(abs(peaks)*frac*fvf, axis=-1)
 
-    rgb = np.zeros(peaksList[0].shape)
-
-    for xyz in np.ndindex(peaksList[0].shape[:-1]):
-        for k in range(K):
-            rgb[xyz] += abs(peaksList[k][xyz])*fracList[k][xyz]*fvfList[k][xyz]
-
-    # Normalize between [0,1] and by number of peaks per voxel
-    if fracList is None and fvfList is None:
-        p = peak_count[(slice(None),) * dim + (np.newaxis,)]
-        warnings.filterwarnings("ignore")
-        rgb *= np.repeat(1+(K-p)/p, 3, axis=dim)
-        warnings.filterwarnings("default")
-    rgb[np.isnan(rgb)] = 0
-    rgb /= np.max(rgb)
+    # Normalize
+    if normalize:
+        rgb = normalize_color(rgb, norm_all_voxels=True)
 
     # Color order
     if order == 'brg':
@@ -123,16 +100,15 @@ def peaks_to_RGB(peaksList: list, fracList: list = None, fvfList: list = None,
     return rgb
 
 
-def peaks_to_peak(peaksList: list, fixel_weights, fracList: list = None,
-                  fvfList: list = None):
+def peaks_to_peak(peaks, fixel_weights, frac=None, fvf=None):
     '''
     Fuse peaks into a single peak based on fixel weight and fvf, intensity
     is then weighted with frac. Mostly used for visualization purposes.
 
     Parameters
     ----------
-    peaksList : list of 4-D arrays
-        List of arrays containing the peaks of shape (x,y,z,3)
+    peaks : 4-D array of shape (x,y,z,3,k)
+        List of 4-D arrays of shape (x,y,z,3) containing peak information.
     fixel_weights : 4-D array of shape (x,y,z,K)
         Array containing the relative weights of the K fixels in each voxel.
 
@@ -142,43 +118,25 @@ def peaks_to_peak(peaksList: list, fixel_weights, fracList: list = None,
 
     '''
 
-    K = len(peaksList)
+    K = peaks.shape[4]
 
-    for k in range(K):
-        peaksList[k] = np.nan_to_num(peaksList[k])
+    peaks = np.nan_to_num(peaks)
 
-    peak = np.zeros(peaksList[0].shape)
+    if frac is None:
+        frac = np.ones(peaks.shape[:-2]+(K,))/K
+    frac = np.stack((frac,)*3, axis=3)
 
-    if fracList is None:
-        fracList = []
-        for k in range(K):
-            fracList.append(np.ones(peaksList[0].shape[:-1])/(k+1))
+    if fvf is None:
+        fvf = np.ones(peaks.shape[:-2]+(K,))
+    fvf = np.stack((fvf,)*3, axis=3)
 
-    if fvfList is None:
-        fvfList = []
-        for k in range(K):
-            fvfList.append(np.ones(peaksList[0].shape[:-1]))
+    fixel_weights = np.stack((fixel_weights,)*3, axis=3)
+    weight_sum = np.sum(fixel_weights, axis=4)
+    weight_sum = np.stack((weight_sum,)*K, axis=4)
 
-    fracTot = np.zeros(peaksList[0].shape[:-1])
-
-    warnings.filterwarnings("error")
-    for xyz in np.ndindex(peaksList[0].shape[:-1]):
-        for k in range(K):
-            try:
-                peak[xyz] += (abs(peaksList[k][xyz])*fixel_weights[xyz+(k,)]
-                              / np.sum(fixel_weights[xyz])*fvfList[k][xyz])
-            except RuntimeWarning:
-                continue
-    warnings.resetwarnings()
-
-    for k in range(K):
-        fracTot += fracList[k]
-
-    peak[..., 0] *= fracTot
-    peak[..., 1] *= fracTot
-    peak[..., 2] *= fracTot
-
-    # peak = np.where(np.isnan(peak), None, peak)
+    peak = np.abs(peaks) * fixel_weights * fvf*frac
+    peak = np.divide(peak, weight_sum, where=weight_sum != 0)
+    peak = np.sum(peak, axis=-1)
 
     return peak
 
@@ -335,7 +293,7 @@ def get_streamline_angle(trk, resolution_increase: int = 1):
 
 
 def get_streamline_density(trk, resolution_increase: int = 1,
-                           color: bool = False):
+                           color: bool = False, subsegment: int = 10):
     '''
     Get the total segment length from a tract specified in trk.
 
@@ -357,47 +315,55 @@ def get_streamline_density(trk, resolution_increase: int = 1,
         Array containing the streamline density in each voxel.
     '''
 
-    from unravel.core import tract_to_streamlines, compute_subsegments
-    from tqdm import tqdm
+    streams = trk.streamlines
+    point = streams.get_data().astype(np.float32)*resolution_increase
 
-    density = np.zeros(trk._dimensions*resolution_increase, dtype=np.float32)
-    rgb = np.zeros(tuple(trk._dimensions*resolution_increase)+(3,),
-                   dtype=np.float32)
+    # Creating subpoints
+    subpoint = np.linspace(point, np.roll(point, -1, axis=0),
+                           subsegment+1, axis=1)
+    point = subpoint[:, :-1, :].reshape(point.shape[0]*subsegment, 3)
+    del subpoint
 
-    sList = tract_to_streamlines(trk)
+    # Getting fixel vectors
+    x, y, z = point.astype(np.int32).T
 
-    for streamline in tqdm(sList):
-
-        previous_point = streamline[0, :]*resolution_increase
-
-        for i in range(1, streamline.shape[0]):
-
-            point = streamline[i, :]*resolution_increase
-
-            voxList = compute_subsegments(previous_point, point)
-            vs = (point-previous_point)
-
-            for x, y, z in voxList:
-
-                x, y, z = (int(x), int(y), int(z))
-
-                density[x, y, z] += voxList[(x, y, z)]
-                if color:
-                    rgb[x, y, z] += abs(vs)
-
-            previous_point = point
+    # Removing streamline end points
+    ends = (streams._offsets+streams._lengths-1)*subsegment
+    idx = np.linspace(0, subsegment-1, subsegment, dtype=np.int32)
+    ends = ends[:, np.newaxis] + idx
+    del idx
+    ends = ends.flatten()
 
     if color:
-        return rgb
+        # Computing streamline segment vectors
+        next_point = np.roll(point, -1, axis=0)
+        vs = next_point-point
+        del point, next_point
 
-    return density
+        vs[ends, :] = [0, 0, 0]
+        del ends
+
+        rgb = np.zeros(tuple(trk._dimensions*resolution_increase)+(3,),
+                       dtype=np.float32)
+        np.add.at(rgb, (x, y, z), abs(vs))
+
+        return normalize_color(rgb, norm_all_voxels=True)
+
+    else:
+        coef = np.ones(x.shape, dtype=np.float32)
+
+        coef[ends] = 0
+
+        density = np.zeros(trk._dimensions*resolution_increase,
+                           dtype=np.float32)
+        np.add.at(density, (x, y, z), coef)
+
+        return density
 
 
 def normalize_color(rgb, norm_all_voxels: bool = False):
     '''
     Sets values in RGB array (x,y,z,3) to be within [0,1].
-
-    TODO: increase speed when norm_all_voxels is set to True.
 
     Parameters
     ----------
@@ -414,23 +380,22 @@ def normalize_color(rgb, norm_all_voxels: bool = False):
     '''
 
     if norm_all_voxels:
-        norm = np.zeros(rgb.shape)
-
-        for xyz in np.ndindex(rgb.shape[:-1]):
-            if np.sum(rgb[xyz]) != 0:
-                norm[xyz] = rgb[xyz] / np.linalg.norm(rgb[xyz])
+        norm = np.linalg.norm(rgb, axis=3)
+        norm = np.stack((norm,)*3, axis=3, dtype=np.float32)
+        norm = np.divide(rgb, norm, dtype=np.float32,
+                         where=np.sum(rgb, axis=3, keepdims=True) != 0)
     else:
-        norm = rgb/np.max(rgb)
+        norm = (rgb/np.max(rgb)).astype(np.float32)
 
     return norm
 
 
 def plot_streamline_trajectory(trk, resolution_increase: int = 1,
                                streamline_number: int = 0, axis: int = 1,
-                               color: bool = False,
+                               color: bool = False, subsegment: int = 10,
                                norm_all_voxels: bool = False):
     '''
-    Produces a grpah of the streamline density of tract 'trk', the streamline
+    Produces a graph of the streamline density of tract 'trk', the streamline
     specified with 'streamline_number' is highlighted along 'axis'.
 
     Parameters
@@ -461,11 +426,11 @@ def plot_streamline_trajectory(trk, resolution_increase: int = 1,
     import matplotlib.pyplot as plt
     from unravel.core import tract_to_streamlines
 
-    density = get_streamline_density(trk, color=color,
+    density = get_streamline_density(trk, color=color, subsegment=subsegment,
                                      resolution_increase=resolution_increase)
 
     if color:
-        density = normalize_color(density, norm_all_voxels=norm_all_voxels)
+        # density = normalize_color(density, norm_all_voxels=norm_all_voxels)
         density = (density*255).astype('uint8')
 
     sList = tract_to_streamlines(trk)

@@ -1474,4 +1474,3 @@ def weighted_mean_dev(metric_maps: list, fixelWeightList: list,
     else:
 
         return weightedMean, weightedDev, weightSum, [Min, Max]
-        return weightedMean, weightedDev, weightSum, [Min, Max]

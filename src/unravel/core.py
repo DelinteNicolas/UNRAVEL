@@ -341,8 +341,11 @@ def get_fixel_weight(trk, peaks, method: str = 'ang', ff=None,
     point = subpoint[:, :-1, :].reshape(point.shape[0]*subsegment, 3)
 
     # Computing streamline segment vectors
-    next_point = np.roll(point, -1, axis=0)
-    vs = next_point-point
+    vs = np.roll(point, -1, axis=0)-point
+
+    # To allow for variable step size
+    dist = np.linalg.norm(vs, axis=1)
+    dist = np.stack((dist,)*K, axis=1)
 
     # Getting fixel vectors
     x, y, z = point.astype(np.int32).T
@@ -353,13 +356,14 @@ def get_fixel_weight(trk, peaks, method: str = 'ang', ff=None,
 
     # Computing relative contribution
     if method == 'vol':
-        coef = fraction_weighting(point, nf, ff)/subsegment
+        coef = fraction_weighting(point, nf, ff)*dist/subsegment
     elif method == 'cfo':
-        coef = closest_fixel_only(vs, vf, nf)/subsegment
+        coef = closest_fixel_only(vs, vf, nf)*dist/subsegment
     elif method == 'ang':
-        coef = angular_weighting(vs, vf, nf)/subsegment
+        coef = angular_weighting(vs, vf, nf)*dist/subsegment
     elif method == 'raw':
-        coef = relative_angular_weighting(vs, vf, nf)/subsegment
+        coef = relative_angular_weighting(vs, vf, nf)*dist/subsegment
+    del point, vs, nf, vf, dist
 
     # Removing streamline end points
     ends = (streams._offsets+streams._lengths-1)*subsegment
@@ -1470,44 +1474,3 @@ def weighted_mean_dev(metric_maps: list, fixelWeightList: list,
     else:
 
         return weightedMean, weightedDev, weightSum, [Min, Max]
-        return weightedMean, weightedDev, weightSum, [Min, Max]
-
-
-if __name__ == '__main__':
-
-    os.chdir('C:/Users/nicol/Desktop/temp_unravel_speed/UNRAVEL/')
-
-    data_dir = 'data/'
-    patient = 'sampleSubject'
-    trk_file = data_dir+patient+'_cc_bundle_mid_ant.trk'
-    trk = load_tractogram(trk_file, 'same')
-    trk.to_vox()
-    trk.to_corner()
-
-    # Maps and means ----------------------------------------------------------
-
-    peaks = np.stack((nib.load(data_dir+patient+'_mf_peak_f0.nii.gz').get_fdata(),
-                      nib.load(data_dir+patient+'_mf_peak_f1.nii.gz').get_fdata()),
-                     axis=4)
-
-    frac = np.stack((nib.load(data_dir+patient+'_mf_fvf_f0.nii.gz').get_fdata(),
-                    nib.load(data_dir+patient+'_mf_fvf_f1.nii.gz').get_fdata()),
-                    axis=3)
-
-    fixel_weights = get_fixel_weight(trk, peaks, method='ang')
-
-    metric_maps = [nib.load(data_dir+patient+'_mf_fvf_f0.nii.gz').get_fdata(),
-                   nib.load(data_dir+patient+'_mf_fvf_f1.nii.gz').get_fdata()]
-
-    micro_map = get_microstructure_map(fixel_weights, metric_maps)
-
-    weightedMean, weightedDev, _, [Min, Max] = weighted_mean_dev(
-        metric_maps, [fixel_weights[:, :, :, 0], fixel_weights[:, :, :, 1]])
-
-    # Printing means ----------------------------------------------------------
-
-    print('The fiber volume fraction estimation of '+patient+' in the middle '
-          + 'anterior bundle of the corpus callosum are \n'
-          + 'Weighted mean : '+str(weightedMean)+'\n'
-          + 'Weighted standard deviation : '+str(weightedDev)+'\n'
-          + 'Min/Max : '+str(Min), str(Max)+'\n')

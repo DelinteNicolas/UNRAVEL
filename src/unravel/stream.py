@@ -272,7 +272,8 @@ def remove_outlier_streamlines(trk_file, point_array, out_file: str = None,
         Path to output file. The default is None.
     outlier_ratio : int, optional
         Ratio of bundle length for a streamline to be removed. Increasing the
-        value removes more streamline. The default is 2.
+        value removes more streamline. Increasing the value above 2**level of
+        point_array no longer removes more streamlines. The default is 2.
 
     Returns
     -------
@@ -404,3 +405,47 @@ def get_roi_sections_from_nodes(trk_file: str, point_array,
         mask[roi == 2] = i
 
     return mask.astype(int)
+
+
+def smooth_streamlines(trk_file: str, out_file: str = None):
+    '''
+    Slightly smooth streamlines. The step size will no longer be uniform after
+    smoothing.
+
+    Parameters
+    ----------
+    trk_file : str
+        Path to tractogram file.
+    out_file : str, optional
+        Path to output file. The default is None.
+
+    Returns
+    -------
+    None.
+
+    '''
+
+    trk = load_tractogram(trk_file, 'same')
+    trk.to_vox()
+    trk.to_corner()
+
+    streams = trk.streamlines
+    point = streams.get_data()
+
+    smoothed_point = (np.roll(point, 1, axis=0) + point +
+                      np.roll(point, -1, axis=0))/3
+
+    streams._data = smoothed_point
+
+    # Setting end points back to original values
+    starts = streams._offsets
+    ends = starts-1
+    streams._data[starts] = point[starts]
+    streams._data[ends] = point[ends]
+
+    if out_file is None:
+        out_file = trk_file
+
+    trk_new = StatefulTractogram(streams, trk, Space.VOX,
+                                 origin=Origin.TRACKVIS)
+    save_tractogram(trk_new, out_file)

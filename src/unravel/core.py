@@ -367,7 +367,7 @@ def get_fixel_weight(trk, peaks, method: str = 'ang', ff=None,
         coef = angular_weighting(vs, vf, nf)*dist/subsegment
     elif method == 'raw':
         coef = relative_angular_weighting(vs, vf, nf)*dist/subsegment
-    # del point, vs, nf, vf, dist
+    del point, vs, nf, vf, dist
 
     # Removing streamline end points
     ends = (streams._offsets+streams._lengths-1)*subsegment

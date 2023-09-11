@@ -224,13 +224,14 @@ def angular_weighting(vs, vf, nf=None):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         ang_coef = np.stack((prod,)*K, axis=1, dtype=np.float32)
-        ang_coef = np.divide(ang_coef, angle_diff, where=~np.isnan(angle_diff))
+        np.divide(ang_coef, angle_diff, out=ang_coef,
+                  where=~np.isnan(angle_diff))
     ang_coef = np.nan_to_num(ang_coef, nan=1)
 
     ang_coef *= (1-nf)
-    s = np.sum(ang_coef, axis=1)
-    ang_coef = np.divide(ang_coef, np.stack((s,)*K, axis=1),
-                         where=ang_coef != 0)
+    s = np.sum(ang_coef, axis=1, dtype=np.float32)
+    s = np.stack((s,)*K, axis=1)
+    np.divide(ang_coef, s, out=ang_coef, where=s != 0)
 
     return ang_coef
 
@@ -270,14 +271,15 @@ def relative_angular_weighting(vs, vf, nf):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         ang_coef = np.stack((prod,)*K, axis=1, dtype=np.float32)
-        ang_coef = np.divide(ang_coef, angle_diff, where=~np.isnan(angle_diff))
+        np.divide(ang_coef, angle_diff, out=ang_coef,
+                  where=~np.isnan(angle_diff))
     ang_coef *= (90-angle_diff)
     ang_coef = np.nan_to_num(ang_coef, nan=1)
 
     ang_coef *= (1-nf)
-    s = np.sum(ang_coef, axis=1)
-    ang_coef = np.divide(ang_coef, np.stack((s,)*K, axis=1),
-                         where=ang_coef != 0)
+    s = np.sum(ang_coef, axis=1, dtype=np.float32)
+    s = np.stack((s,)*K, axis=1)
+    np.divide(ang_coef, s, out=ang_coef, where=s != 0)
 
     return ang_coef
 
@@ -365,7 +367,7 @@ def get_fixel_weight(trk, peaks, method: str = 'ang', ff=None,
         coef = angular_weighting(vs, vf, nf)*dist/subsegment
     elif method == 'raw':
         coef = relative_angular_weighting(vs, vf, nf)*dist/subsegment
-    del point, vs, nf, vf, dist
+    # del point, vs, nf, vf, dist
 
     # Removing streamline end points
     ends = (streams._offsets+streams._lengths-1)*subsegment
@@ -1317,7 +1319,7 @@ def get_microstructure_map(fixel_weights, metric_maps):
     return micro_map
 
 
-def get_weighted_mean(microstructure_map, fixel_weights,
+def get_weighted_mean(micro_map, fixel_weights,
                       weighting: str = 'tsl'):
     '''
     Returns the mean value of a microstructure map using either a voxel or
@@ -1326,7 +1328,7 @@ def get_weighted_mean(microstructure_map, fixel_weights,
 
     Parameters
     ----------
-    microstructure_map : 3-D array of shape (x,y,z)
+    micro_map : 3-D array of shape (x,y,z)
         Array containing the microstructure map
     fixel_weights : 4-D array of shape (x,y,z,K)
         Array containing the relative weights of the K fixels in each voxel.
@@ -1345,23 +1347,23 @@ def get_weighted_mean(microstructure_map, fixel_weights,
     tsl = total_segment_length(fixel_weights)
 
     if weighting == 'roi':
-        weighted_map = np.zeros(tsl.shape, dtype='float32')
-        weighted_map[tsl != 0] = 1
+        weighted_map = np.where(tsl != 0, 1, 0)
     else:
         weighted_map = tsl
 
     if np.sum(weighted_map) == 0:
         return 0, 0
 
-    mean = np.sum(microstructure_map*weighted_map)/np.sum(weighted_map)
+    mean = np.sum(micro_map*weighted_map)/np.sum(weighted_map)
 
     M = np.count_nonzero(weighted_map)
 
     if M == 1:
         return mean, 0
 
-    dev = np.sqrt(np.sum(weighted_map*np.square(microstructure_map-mean)) /
-                  ((M-1)/M*np.sum(weighted_map)))
+    den = (M-1)/M*np.sum(weighted_map)
+    dev = np.sqrt(np.divide(np.sum(weighted_map*np.square(micro_map-mean)),
+                            den))
 
     return mean, dev
 

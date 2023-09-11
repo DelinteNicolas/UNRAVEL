@@ -229,7 +229,8 @@ def angular_weighting(vs, vf, nf=None):
 
     ang_coef *= (1-nf)
     s = np.sum(ang_coef, axis=1)
-    ang_coef = ang_coef/np.stack((s,)*K, axis=1)
+    ang_coef = np.divide(ang_coef, np.stack((s,)*K, axis=1),
+                         where=ang_coef != 0)
 
     return ang_coef
 
@@ -275,7 +276,8 @@ def relative_angular_weighting(vs, vf, nf):
 
     ang_coef *= (1-nf)
     s = np.sum(ang_coef, axis=1)
-    ang_coef = ang_coef/np.stack((s,)*K, axis=1)
+    ang_coef = np.divide(ang_coef, np.stack((s,)*K, axis=1),
+                         where=ang_coef != 0)
 
     return ang_coef
 
@@ -1306,8 +1308,7 @@ def get_microstructure_map(fixel_weights, metric_maps):
 
     '''
 
-    total_weight = np.sum(fixel_weights, axis=len(fixel_weights.shape)-1)
-    # total_weight = np.stack((total_weight, total_weight), axis=3)
+    total_weight = np.sum(fixel_weights, axis=-1)
 
     micro_map = np.sum(metric_maps*fixel_weights, axis=-1)
 

@@ -72,7 +72,7 @@ def voxels_from_segment(position1: tuple, position2: tuple,
     return v[0], v[1]/subparts
 
 
-def angle_difference(vs, vf, direction: bool = False) -> float:
+def angle_difference(vs, vf, direction: bool = False):
     '''
     Computes the angle difference between two vectors.
 
@@ -89,7 +89,7 @@ def angle_difference(vs, vf, direction: bool = False) -> float:
 
     Returns
     -------
-    ang : float
+    ang : 2D array of size (n,k)
         Angle difference (in degrees).
 
     '''
@@ -120,13 +120,14 @@ def angle_difference(vs, vf, direction: bool = False) -> float:
     return ang
 
 
-def fraction_weighting(point: tuple,  nf: list, ff: list):
+def fraction_weighting(point, ff, nf=None):
     '''
-
+    Computes the relative contribution of each fixel k based on its fraction ff
+    in voxel (point).
 
     Parameters
     ----------
-    point : tuple
+    point : 2D array of size (n,3)
         x, y, z coordinates.
     nf : 2D array of size (n,k)
         List of the null k vectors.
@@ -135,12 +136,15 @@ def fraction_weighting(point: tuple,  nf: list, ff: list):
 
     Returns
     -------
-    ang_coef : list
+    ang_coef : 2D array of size (n,k)
         List of the k coefficients
 
     '''
 
     K = nf.shape[1]
+
+    if nf is None:
+        nf = np.zeros((point.shape[0],)+(K,))
 
     x, y, z = point.astype(np.int32).T
 
@@ -153,10 +157,10 @@ def fraction_weighting(point: tuple,  nf: list, ff: list):
     return ang_coef
 
 
-def closest_fixel_only(vs, vf: list, nf: list):
+def closest_fixel_only(vs, vf, nf=None):
     '''
-    Computes the relative contributions of the segments in vList to vs using
-    closest fixel only approach.
+    Computes the relative contributions of the segments in vf to vs using the
+    closest-fixel-only approach.
 
     Parameters
     ----------
@@ -169,7 +173,7 @@ def closest_fixel_only(vs, vf: list, nf: list):
 
     Returns
     -------
-    ang_coef : list
+    ang_coef : 2D array of size (n,k)
         List of the k coefficients
 
     '''
@@ -178,6 +182,9 @@ def closest_fixel_only(vs, vf: list, nf: list):
         vf = vf[..., np.newaxis]
 
     K = vf.shape[2]
+
+    if nf is None:
+        nf = np.zeros((vs.shape[0],)+(K,))
 
     angle_diff = angle_difference(vs, vf)
     ang_coef = (angle_diff == np.nanmin(angle_diff, axis=1)
@@ -206,7 +213,7 @@ def angular_weighting(vs, vf, nf=None):
 
     Returns
     -------
-    ang_coef : list
+    ang_coef : 2D array of size (n,k)
         List of the k coefficients
 
     '''
@@ -215,6 +222,9 @@ def angular_weighting(vs, vf, nf=None):
         vf = vf[..., np.newaxis]
 
     K = vf.shape[2]
+
+    if nf is None:
+        nf = np.zeros((vs.shape[0],)+(K,))
 
     angle_diff = angle_difference(vs, vf)
     # Angle product if not NaN
@@ -236,7 +246,7 @@ def angular_weighting(vs, vf, nf=None):
     return ang_coef
 
 
-def relative_angular_weighting(vs, vf, nf):
+def relative_angular_weighting(vs, vf, nf=None):
     '''
     Computes the relative contributions of the segments in vList to vs using
     relative angular weighting, which attributes less weight to fixel
@@ -253,7 +263,7 @@ def relative_angular_weighting(vs, vf, nf):
 
     Returns
     -------
-    ang_coef : list
+    ang_coef : 2D array of size (n,k)
         List of the k coefficients
 
     '''
@@ -262,6 +272,9 @@ def relative_angular_weighting(vs, vf, nf):
         vf = vf[..., np.newaxis]
 
     K = vf.shape[2]
+
+    if nf is None:
+        nf = np.zeros((vs.shape[0],)+(K,))
 
     angle_diff = angle_difference(vs, vf)
     # Angle product if not NaN
@@ -294,11 +307,12 @@ def get_fixel_weight(trk, peaks, method: str = 'ang', ff=None,
     ----------
     trk : tractogram
         Content of a .trk file
-    peaks : 4-D array of shape (x,y,z,3,k)
-        List of 4-D arrays of shape (x,y,z,3) containing peak information.
+    peaks : 4D array of shape (x,y,z,3,k)
+        List of 4D arrays of shape (x,y,z,3) containing peak information.
     method : str, optional
         Method used for the relative contribution, either;
             'ang' : angular weighting
+            'raw' : relative angular weighting
             'cfo' : closest-fixel-only
             'vol' : relative volume weighting.
         The default is 'ang'.
@@ -307,26 +321,19 @@ def get_fixel_weight(trk, peaks, method: str = 'ang', ff=None,
         The default is None.
     subsegment : int
         Number of subsegments per segment (tractography step), increases
-        precision and computation time. The default is 10.
+        precision at the cost of an increased computation time and RAM usage.
+        The default is 10.
     return_phi : bool, optional
         If True, returns the phi_maps used for the angular agreement. Currently
         slows down the code. The default is False.
 
     Returns
     -------
-    fixel_weight : 4-D array of shape (x,y,z,K)
+    fixel_weight : 4D array of shape (x,y,z,K)
         Array containing the relative weights of the K fixels in each voxel.
     phi_maps : dict
         Dictionnary containing the lists of the relative contribution and
         angle difference of the most aligned fixel in each voxel.
-    number_of_streamlines: int
-        Number of streamlines in the tractogram
-    outputVoxelStream : list, optional
-        List of the relative contribution of each streamline segment for the
-        streamlines specified in streamList.
-    outputSegmentStream :list, optional
-        List of the relative contribution of each voxel for the streamlines
-        specified in streamList.
 
     '''
 
@@ -360,7 +367,7 @@ def get_fixel_weight(trk, peaks, method: str = 'ang', ff=None,
 
     # Computing relative contribution
     if method == 'vol':
-        coef = fraction_weighting(point, nf, ff)*dist/subsegment
+        coef = fraction_weighting(point, ff, nf)*dist/subsegment
     elif method == 'cfo':
         coef = closest_fixel_only(vs, vf, nf)*dist/subsegment
     elif method == 'ang':
@@ -394,7 +401,7 @@ def deltas_to_D(dx: float, dy: float, dz: float, lamb=np.diag([1, 0, 0]),
         'y' component.
     dz : float
         'z' component.
-    lamb : 3x3 array, optional
+    lamb : 2D array of size (3,3), optional
         Diagonal matrix containing the diffusion eigenvalues. The default is
         np.diag([1, 0, 0]).
     vec_len : float, optional
@@ -407,7 +414,7 @@ def deltas_to_D(dx: float, dy: float, dz: float, lamb=np.diag([1, 0, 0]),
 
     Returns
     -------
-    D : 3x3 array
+    D : 2D array of size (3,3)
         Matrix containing the diffusion tensor.
 
     '''
@@ -568,15 +575,15 @@ def peak_to_tensor(peaks, norm=None, pixdim=[2, 2, 2]):
 
     Parameters
     ----------
-    peaks : 4-D array
+    peaks : 4D array of size (x,y,z,3)
         Array containing the peaks of shape (x,y,z,3)
-    norm : 3-D array
+    norm : 3D array of size (x,y,z)
         Array containing the normalization factor of shape (x,y,z), usually
         between [0,1].
 
     Returns
     -------
-    t : 5-D array
+    t : 5D array of size (x,y,z,1,6)
         Tensor array of shape (x,y,z,1,6).
 
     '''
@@ -612,18 +619,18 @@ def peak_to_tensor(peaks, norm=None, pixdim=[2, 2, 2]):
 
 def tensor_to_peak(t):
     '''
-    Takes peaks, such as the ones obtained with DIAMOND, and return the
+    Takes peaks, such as the ones obtained with DIAMOND, and returns the
     corresponding tensor, in the format used in Microstructure Fingerprinting.
     TODO : Speed up.
 
     Parameters
     ----------
-    t : 5-D array
+    t : 5D array
         Tensor array of shape (x,y,z,1,6).
 
     Returns
     -------
-    peaks : 4-D array
+    peaks : 4D array
         Array containing the peaks of shape (x,y,z,3)
 
     '''
@@ -660,11 +667,12 @@ def tensor_to_peak(t):
 
 
 def get_fixel_weight_MF(trk_file: str, MF_dir: str, Patient: str, K: int = 2,
-                        method: str = 'ang', streamList: list = [],
-                        speed_up: bool = False):
+                        method: str = 'ang'):
     '''
     Get the fixel weights from a tract specified in trk_file and the peaks
     obtained from Microsrcuture Fingerprinting.
+    OUTDATED.
+    TODO: adapt to new architecture.
 
     Parameters
     ----------
@@ -676,28 +684,21 @@ def get_fixel_weight_MF(trk_file: str, MF_dir: str, Patient: str, K: int = 2,
         Patient name in MF_dir folder
     K : int, optional
         Maximum number of fixel in a voxel. The default is 2.
-    cfo : bool, optional
-        Uses 'closest fixel only' as a relative contribution. The default is
-        False.
-    streamList : list, optional
-        List of int containing the number of the streamlines whose segment-wise
-        contribution will be stored. The default is [].
+    method : str, optional
+        Method used for the relative contribution, either;
+            'ang' : angular weighting
+            'raw' : relative angular weighting
+            'cfo' : closest-fixel-only
+            'vol' : relative volume weighting.
+        The default is 'ang'.
 
     Returns
     -------
-    fixel_weights : 4-D array of shape (x,y,z,K)
+    fixel_weights : 4D array of shape (x,y,z,K)
         Array containing the relative weights of the K fixels in each voxel.
     phi_maps : dict
         Dictionnary containing the lists of the relative contribution and
         angle difference of the most aligned fixel in each voxel.
-    number_of_streamlines: int
-        Number of streamlines in the tractogram
-    outputVoxelStream : list
-        List of the relative contribution of each streamline segment for the
-        streamlines specified in streamList.
-    outputSegmentStream :list
-        List of the relative contribution of each voxel for the streamlines
-        specified in streamList.
 
     '''
 
@@ -720,6 +721,7 @@ def get_fixel_weight_MF(trk_file: str, MF_dir: str, Patient: str, K: int = 2,
             t = t6ToMFpeak(t)
 
         tList.append(t)
+    peaks = np.stack(tList, axis=3)
 
     fList = []
     if method == 'vol':     # Relative volume fraction
@@ -730,17 +732,20 @@ def get_fixel_weight_MF(trk_file: str, MF_dir: str, Patient: str, K: int = 2,
             f = img.get_fdata()
 
             fList.append(f)
+        ff = np.stack(fList, axis=3)
+    else:
+        ff = None
 
-    return get_fixel_weight(trk, tList, method, streamList, fList,
-                            speed_up=speed_up)
+    return get_fixel_weight(trk, peaks, method, ff=ff)
 
 
 def get_fixel_weight_DIAMOND(trk_file: str, DIAMOND_dir: str, Patient: str,
-                             K: int = 2, method: str = 'ang',
-                             streamList: list = [], speed_up: bool = False):
+                             K: int = 2, method: str = 'ang'):
     '''
     Get the fixel weights from a tract specified in trk_file and the tensors
     obtained from DIAMOND.
+    OUTDATED.
+    TODO: adapt to new architecture.
 
     Parameters
     ----------
@@ -752,28 +757,21 @@ def get_fixel_weight_DIAMOND(trk_file: str, DIAMOND_dir: str, Patient: str,
         Patient name in DIAMOND_dir folder
     K : int, optional
         Maximum number of fixel in a voxel. The default is 2.
-    cfo : bool, optional
-        Uses 'closest fixel only' as a relative contribution. The default is
-        False.
-    streamList : list, optional
-        List of int containing the number of the streamlines whose segment-wise
-        contribution will be stored. The default is [].
+    method : str, optional
+        Method used for the relative contribution, either;
+            'ang' : angular weighting
+            'raw' : relative angular weighting
+            'cfo' : closest-fixel-only
+            'vol' : relative volume weighting.
+        The default is 'ang'.
 
     Returns
     -------
-    fixel_weights : 4-D array of shape (x,y,z,K)
+    fixel_weights : 4D array of shape (x,y,z,K)
         Array containing the relative weights of the K fixels in each voxel.
     phi_maps : dict
         Dictionnary containing the lists of the relative contribution and
         angle difference of the most aligned fixel in each voxel.
-    number_of_streamlines: int
-        Number of streamlines in the tractogram
-    outputVoxelStream : list
-        List of the relative contribution of each streamline segment for the
-        streamlines specified in streamList.
-    outputSegmentStream :list
-        List of the relative contribution of each voxel for the streamlines
-        specified in streamList.
 
     '''
 
@@ -803,6 +801,7 @@ def get_fixel_weight_DIAMOND(trk_file: str, DIAMOND_dir: str, Patient: str,
             t[ft == 0, :, :] = [[0, 0, 0, 0, 0, 0]]
 
         tList.append(tensor_to_peak(t))
+    peaks = np.stack(tList, axis=3)
 
     fList = []
     if method == 'vol':     # Relative volume fraction
@@ -812,9 +811,11 @@ def get_fixel_weight_DIAMOND(trk_file: str, DIAMOND_dir: str, Patient: str,
             fk = f[:, :, :, 0, k]
 
             fList.append(fk)
+        ff = np.stack(fList, axis=3)
+    else:
+        ff = None
 
-    return get_fixel_weight(trk, tList, method, streamList, fList,
-                            speed_up=speed_up)
+    return get_fixel_weight(trk, peaks, method, ff=ff)
 
 
 def main_fixel_map(fixel_weights):
@@ -823,12 +824,12 @@ def main_fixel_map(fixel_weights):
 
     Parameters
     ----------
-    fixel_weights : 4-D array of shape (x,y,z,K)
+    fixel_weights : 4D array of shape (x,y,z,K)
         Array containing the relative weights of the K fixels in each voxel.
 
     Returns
     -------
-    mainFixelMap : 3-D array of shape (x,y,z).
+    mainFixelMap : 3D array of shape (x,y,z).
         The array contains int values representing the most aligned fixel.
 
     '''
@@ -880,8 +881,8 @@ def get_streamline_weights(trk, peaks,
     ----------
     trk : tractogram
         Content of a .trk file
-    peaks : 4-D array of shape (x,y,z,3,k)
-        List of 4-D arrays of shape (x,y,z,3) containing peak information.
+    peaks : 4D array of shape (x,y,z,3,k)
+        List of 4D arrays of shape (x,y,z,3) containing peak information.
     method_list : list, optional
         List of methods used for the relative contribution, either;
             'ang' : angular weighting
@@ -896,9 +897,6 @@ def get_streamline_weights(trk, peaks,
 
     Returns
     -------
-    voxelStream : list, optional
-        List of the relative contribution of each streamline segment for the
-        streamline specified.
     segmentStream :list, optional
         List of the relative contribution of each voxel for the streamline
         specified.
@@ -932,7 +930,7 @@ def get_streamline_weights(trk, peaks,
     for j, method in enumerate(method_list):
 
         if method == 'vol':
-            coef = fraction_weighting(point, nf, ff)/subsegment
+            coef = fraction_weighting(point, ff, nf)/subsegment
         elif method == 'cfo':
             coef = closest_fixel_only(vs, vf, nf)/subsegment
         elif method == 'ang':
@@ -954,16 +952,17 @@ def plot_streamline_metrics(trk, peaks, metric_maps,
                             barplot: bool = True):
     '''
     Plots the evolution of a metric along the course of a single streamline.
+    TODO: re-implement barplot
 
 
     Parameters
     ----------
     trk : tractogram
         Content of a .trk file
-    peaks : 4-D array of shape (x,y,z,3,k)
-        List of 4-D arrays of shape (x,y,z,3) containing peak information.
-    metric_maps : 4-D array of shape (x,y,z,3,k)
-        List of K 4-D arrays of shape (x,y,z) containing metric estimations.
+    peaks : 4D array of shape (x,y,z,3,k)
+        List of 4D arrays of shape (x,y,z,3) containing peak information.
+    metric_maps : 4D array of shape (x,y,z,3,k)
+        List of K 4D arrays of shape (x,y,z) containing metric estimations.
     method_list : list, optional
         List of methods used for the relative contribution, either;
             'ang' : angular weighting
@@ -979,7 +978,7 @@ def plot_streamline_metrics(trk, peaks, metric_maps,
         If True then plots for each segment, else plots for each voxel.
         The default is True.
     groundTruth_map : array, optional
-        3-D array of shape (x,y,z)containing the ground truth map.
+        3D array of shape (x,y,z) containing the ground truth map.
     barplot : bool, optional
         If False, does not plot the barplots of the relative contributions.
         The default is True.
@@ -1038,9 +1037,9 @@ def plot_streamline_metrics_old(streamList: list, metric_maps: list,
     streamList : list
         List of segment- or voxel-wise relative contributions.
     metric_maps : list
-        List of K 3-D arrays of shape (x,y,z) containing metric estimations.
+        List of K 3D arrays of shape (x,y,z) containing metric estimations.
     groundTruth_map : array, optional
-        3-D array of shape (x,y,z)containing the ground truth map.
+        3D array of shape (x,y,z)containing the ground truth map.
     barplot : bool, optional
         If False, does not plot the barplots of the relative contributions.
         The default is True.
@@ -1218,14 +1217,14 @@ def volumetric_agreement(fixel_weights):
     '''
     Parameters
     ----------
-    fixel_weights : 4-D array of shape (x,y,z,K)
+    fixel_weights : 4D array of shape (x,y,z,K)
         Array containing the relative weights of the K fixels in each voxel.
 
     Returns
     -------
     index : float
         Volumetric agreement index.
-    index_map : 3-D array of shape (x,y,z)
+    index_map : 3D array of shape (x,y,z)
         Voxel-wise volumetric agreement index.
 
     '''
@@ -1251,7 +1250,7 @@ def angular_agreement(phi_maps, volume_shape):
     -------
     phi : float
         Angular agreement index.
-    phi_map : 3-D array of shape (x,y,z)
+    phi_map : 3D array of shape (x,y,z)
         Voxel-wise angular agreement index.
 
     '''
@@ -1277,12 +1276,12 @@ def total_segment_length(fixel_weights):
     '''
     Parameters
     ----------
-    fixel_weights : 4-D array of shape (x,y,z,K)
+    fixel_weights : 4D array of shape (x,y,z,K)
         Array containing the relative weights of the K fixels in each voxel.
 
     Returns
     -------
-    sc : 3-D array of shape (x,y,z)
+    sc : 3D array of shape (x,y,z)
         Array contains the total segment length in each voxel.
 
     '''
@@ -1298,14 +1297,14 @@ def get_microstructure_map(fixel_weights, metric_maps):
 
     Parameters
     ----------
-    fixel_weights : 4-D array of shape (x,y,z,K)
+    fixel_weights : 4D array of shape (x,y,z,K)
         Array containing the relative weights of the K fixels in each voxel.
-    metric_maps : 4-D array of shape (x,y,z,K)
-        List of K 3-D arrays of shape (x,y,z) containing metric estimations.
+    metric_maps : 4D array of shape (x,y,z,K)
+        List of K 3D arrays of shape (x,y,z) containing metric estimations.
 
     Returns
     -------
-    micro_map : 3-D array of shape (x,y,z)
+    micro_map : 3D array of shape (x,y,z)
         Array containing the microstructure map
 
     '''
@@ -1328,9 +1327,9 @@ def get_weighted_mean(micro_map, fixel_weights,
 
     Parameters
     ----------
-    micro_map : 3-D array of shape (x,y,z)
+    micro_map : 3D array of shape (x,y,z)
         Array containing the microstructure map
-    fixel_weights : 4-D array of shape (x,y,z,K)
+    fixel_weights : 4D array of shape (x,y,z,K)
         Array containing the relative weights of the K fixels in each voxel.
     weighting : str, optional
         Weighting used for the mean. The default is 'tsl'.
@@ -1376,15 +1375,15 @@ def get_weighted_sums(metric_maps: list, fixelWeightList: list):
     Parameters
     ----------
     metric_maps : list
-        List of K 3-D arrays of shape (x,y,z) containing metric estimations.
+        List of K 3D arrays of shape (x,y,z) containing metric estimations.
     fixelWeightList : list
         List containing the relative weights of the K fixels in each voxel.
 
     Returns
     -------
-    weightedMetricSum : 3-D array of shape (x,y,z)
+    weightedMetricSum : 3D array of shape (x,y,z)
         Microstructure map.
-    fixel_weightsum : 3-D array of shape (x,y,z)
+    fixel_weightsum : 3D array of shape (x,y,z)
         Total length map.
     M : int
         Number of non-zero pixels in both metric maps.
@@ -1417,7 +1416,7 @@ def weighted_mean_dev(metric_maps: list, fixelWeightList: list,
     Parameters
     ----------
     metric_maps : list
-        List of K 3-D arrays of shape (x,y,z) containing metric estimations.
+        List of K 3D arrays of shape (x,y,z) containing metric estimations.
     fixelWeightList : list
         List containing the relative weights of the K fixels in each voxel.
     retainAllValues : bool, optional

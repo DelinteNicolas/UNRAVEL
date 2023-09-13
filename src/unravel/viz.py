@@ -340,6 +340,8 @@ def export_alpha_surface(vList: list, output_path: str, method: str = 'raw',
     Tutorial to powerpoint: save as .gltf, open with 3D viewer, save as .glb,
     open with 3D builder then repair then save as .3mf
 
+    TODO: update to new architecture
+
     Parameters
     ----------
     vList : list

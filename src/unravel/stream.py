@@ -60,9 +60,10 @@ def extract_nodes(trk_file: str, level: int = 3, smooth: bool = True):
     m_start = np.mean(start[selec_streamlines], axis=0)
     m_end = np.mean(end[selec_streamlines], axis=0)
 
-    # Re-orders start and end based on last axis position
-    # !!! does not work on left-right starts if not in axial view
-    if m_start[-1] > m_end[-1]:
+    # Re-orders start and end based on main axial direction
+    # !!! does not work on uni-hemisperal left-right tracts
+    main_dir = np.argmax(np.abs(m_start-m_end))
+    if m_start[main_dir] > m_end[main_dir]:
         m_start, m_end = m_end, m_start
 
     # Iterating over specified level ---------------------------------

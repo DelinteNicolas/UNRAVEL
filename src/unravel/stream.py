@@ -258,7 +258,7 @@ def get_dist_from_median_trajectory(trk_file: str, point_array,
 
 
 def remove_outlier_streamlines(trk_file, point_array, out_file: str = None,
-                               outlier_ratio: int = 2):
+                               outlier_ratio: float = .5):
     '''
     Removes streamlines that are outliers for more than half (default) of the
     bundle trajectory based on the distance to the mean trajectory.
@@ -272,9 +272,8 @@ def remove_outlier_streamlines(trk_file, point_array, out_file: str = None,
     out_file : str, optional
         Path to output file. The default is None.
     outlier_ratio : int, optional
-        Ratio of bundle length for a streamline to be removed. Increasing the
-        value removes more streamline. Increasing the value above 2**level of
-        point_array no longer removes more streamlines. The default is 2.
+        Percentage of the streamline allowed to be an outlier [0:1]. Increasing
+        the value removes less streamlines. The default is 0.5 (50%).
 
     Returns
     -------
@@ -295,10 +294,10 @@ def remove_outlier_streamlines(trk_file, point_array, out_file: str = None,
     iqr = q3+1.5*(q3-q1)
     outliers = dist > np.repeat(iqr[:, np.newaxis], dist.shape[1], axis=1)
 
-    # Remove if more than 1/outlier_ratio of pathway is outlier
+    # Remove if more than outlier_ratio of pathway is outlier
     n_sign = np.sum(outliers, axis=0)
     n_val = np.sum(dist > 0, axis=0)
-    n_sign = np.where(n_sign > n_val/outlier_ratio, 1, 0)
+    n_sign = np.where(n_sign > n_val*outlier_ratio, 1, 0)
     n_idx = np.argwhere(n_sign == 1)
 
     streams = remove_streamlines(streams, n_idx)

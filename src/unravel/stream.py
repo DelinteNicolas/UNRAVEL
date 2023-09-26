@@ -122,7 +122,7 @@ def extract_nodes(trk_file: str, level: int = 3, smooth: bool = True):
             try:
                 points = streams_data[idx, :]
                 point_array[2**(level-j-1)*(2*i+1)] = np.mean(points, axis=0)
-            except AttributeError:
+            except IndexError:
                 point_array[2**(level-j-1)*(2*i+1)] = midpoint
 
     if smooth:

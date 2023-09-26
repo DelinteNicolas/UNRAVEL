@@ -316,6 +316,8 @@ def remove_outlier_streamlines(trk_file, point_array, out_file: str = None,
         ang = angle_difference(np.stack((average_dir,)*end_0.shape[0], axis=0),
                                dirs, direction=False)
 
+        print(ang.shape)
+
         q1, q3 = np.percentile(ang, [25, 75])
         iqr = q3+1.5*(q3-q1)
         n_idx_dir = np.argwhere(ang > iqr)

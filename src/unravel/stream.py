@@ -12,6 +12,7 @@ from dipy.io.stateful_tractogram import Space, StatefulTractogram, Origin
 from dipy.io.streamline import load_tractogram, save_tractogram
 from unravel.utils import tract_to_ROI
 from skimage.morphology import flood
+from unravel.core import angle_difference
 
 
 def extract_nodes(trk_file: str, level: int = 3, smooth: bool = True):
@@ -113,15 +114,16 @@ def extract_nodes(trk_file: str, level: int = 3, smooth: bool = True):
             ns = streams_data-midpoint
             sign = np.where(np.sum(ns*normal, axis=1) > 0, 1, 0)
             idx = np.argwhere(abs(np.roll(sign, 1)-sign) == 1)
-            print(idx)
             idx = np.array(
                 list(filter(lambda x: x not in streams._offsets, idx)))
             idx = np.array(list(filter(lambda x: x not in idx_filter, idx)))
-            print(idx)
 
             # Computing mean position on the surface
-            points = streams_data[idx, :]
-            point_array[2**(level-j-1)*(2*i+1)] = np.mean(points, axis=0)
+            try:
+                points = streams_data[idx, :]
+                point_array[2**(level-j-1)*(2*i+1)] = np.mean(points, axis=0)
+            except AttributeError:
+                point_array[2**(level-j-1)*(2*i+1)] = midpoint
 
     if smooth:
         _, point_array = get_dist_from_median_trajectory(trk_file, point_array,
@@ -260,7 +262,8 @@ def get_dist_from_median_trajectory(trk_file: str, point_array,
 
 
 def remove_outlier_streamlines(trk_file, point_array, out_file: str = None,
-                               outlier_ratio: float = .5):
+                               outlier_ratio: float = .5,
+                               remove_outlier_dir: bool = False):
     '''
     Removes streamlines that are outliers for more than half (default) of the
     bundle trajectory based on the distance to the mean trajectory.
@@ -301,6 +304,24 @@ def remove_outlier_streamlines(trk_file, point_array, out_file: str = None,
     n_val = np.sum(dist > 0, axis=0)
     n_sign = np.where(n_sign > n_val*outlier_ratio, 1, 0)
     n_idx = np.argwhere(n_sign == 1)
+
+    if remove_outlier_dir:
+
+        streams_data = trk.streamlines.get_data()
+        end_0 = streams_data[streams._offsets, :]
+        end_1 = np.roll(streams_data[streams._offsets-1, :], -1, axis=0)
+        dirs = end_1-end_0
+        average_dir = point_array[-1]-point_array[0]
+
+        ang = angle_difference(np.stack((average_dir,)*end_0.shape[0], axis=0),
+                               dirs, direction=False)
+
+        q1, q3 = np.percentile(ang, [25, 75])
+        iqr = q3+1.5*(q3-q1)
+        n_idx_dir = np.argwhere(ang > iqr)
+        print(str(n_idx_dir.shape[0])+' streamlines removed based on direction')
+
+        n_idx = np.concatenate((n_idx, n_idx_dir))
 
     streams = remove_streamlines(streams, n_idx)
 

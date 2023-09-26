@@ -113,9 +113,11 @@ def extract_nodes(trk_file: str, level: int = 3, smooth: bool = True):
             ns = streams_data-midpoint
             sign = np.where(np.sum(ns*normal, axis=1) > 0, 1, 0)
             idx = np.argwhere(abs(np.roll(sign, 1)-sign) == 1)
+            print(idx)
             idx = np.array(
                 list(filter(lambda x: x not in streams._offsets, idx)))
             idx = np.array(list(filter(lambda x: x not in idx_filter, idx)))
+            print(idx)
 
             # Computing mean position on the surface
             points = streams_data[idx, :]

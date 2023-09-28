@@ -341,7 +341,7 @@ def remove_outlier_streamlines(trk_file, point_array, out_file: str = None,
 
         gaus = gaussian_kde(X)(X)
 
-        n_idx_gaus = np.argwhere(gaus < np.mean(gaus[n_idx_dir]))
+        n_idx_gaus = np.argwhere(gaus < np.max(gaus[n_idx_dir]))
 
         print(str(n_idx_gaus.shape[0]) +
               ' streamlines removed based on direction')

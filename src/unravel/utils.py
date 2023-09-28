@@ -212,6 +212,32 @@ def tensor_to_DTI(t):
     return FA, AD, RD, MD
 
 
+def xyz_to_spherical(xyz):
+    '''
+    X,y,z coordinates to spherical coordinates.
+
+    Parameters
+    ----------
+    xyz : array of size (n,3)
+        X,y,z coordinates of n points
+
+    Returns
+    -------
+    r : array of size (n)
+        DESCRIPTION.
+    theta : array of size (n)
+        DESCRIPTION.
+    phi : array of size (n)
+        DESCRIPTION.
+
+    '''
+    xy = xyz[:, 0]**2 + xyz[:, 1]**2
+    r = np.sqrt(xy + xyz[:, 2]**2)
+    theta = np.arctan2(np.sqrt(xy), xyz[:, 2])
+    phi = np.arctan2(xyz[:, 1], xyz[:, 0])
+    return r, theta, phi
+
+
 def get_streamline_count(trk) -> int:
     '''
     Returns the number of streamlines in a tractogram.

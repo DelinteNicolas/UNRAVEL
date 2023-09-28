@@ -8,9 +8,10 @@ Created on Wed Aug 16 11:25:30 2023
 
 import numpy as np
 from sklearn.cluster import KMeans
+from scipy.stats import gaussian_kde
 from dipy.io.stateful_tractogram import Space, StatefulTractogram, Origin
 from dipy.io.streamline import load_tractogram, save_tractogram
-from unravel.utils import tract_to_ROI
+from unravel.utils import tract_to_ROI, xyz_to_spherical
 from skimage.morphology import flood
 from unravel.core import angle_difference
 
@@ -266,7 +267,9 @@ def remove_outlier_streamlines(trk_file, point_array, out_file: str = None,
                                remove_outlier_dir: bool = False):
     '''
     Removes streamlines that are outliers for more than half (default) of the
-    bundle trajectory based on the distance to the mean trajectory.
+    bundle trajectory based on the distance to the mean trajectory. Can also
+    remove streamlines if their main direction is an outlier with the
+    remove_outlier_dir parameter.
 
     Parameters
     ----------
@@ -279,6 +282,8 @@ def remove_outlier_streamlines(trk_file, point_array, out_file: str = None,
     outlier_ratio : int, optional
         Percentage of the streamline allowed to be an outlier [0:1]. Increasing
         the value removes less streamlines. The default is 0.5 (50%).
+    remove_outlier_dir : bool, optional
+        If True, removes streamlines whose direction are outliers.
 
     Returns
     -------
@@ -316,12 +321,31 @@ def remove_outlier_streamlines(trk_file, point_array, out_file: str = None,
         ang = angle_difference(np.stack((average_dir,)*end_0.shape[0], axis=0),
                                dirs, direction=False)
 
+        # Computes angle difference to be considered outlier
         q1, q3 = np.percentile(ang, [25, 75])
         iqr = q3+1.5*(q3-q1)
         n_idx_dir = np.argwhere(ang.flatten() > iqr)
-        print(str(n_idx_dir.shape[0])+' streamlines removed based on direction')
 
-        n_idx = np.concatenate((n_idx, n_idx_dir))
+        # Aligns direction to main tract direction
+        ang = angle_difference(np.stack((average_dir,)*dirs.shape[0], axis=0),
+                               dirs, direction=True)
+
+        dirs_oriented = np.where(ang > 90, -dirs, dirs)
+
+        r, theta, phi = xyz_to_spherical(dirs_oriented)
+        r_a, theta_a, phi_a = xyz_to_spherical(average_dir[np.newaxis, ...])
+        # Center on average direction
+        X = np.stack((theta-theta_a, phi-phi_a))
+        # Range values between [-pi:pi]
+        X = np.where(X < -np.pi, X+2*np.pi, X)
+
+        gaus = gaussian_kde(X)(X)
+
+        n_idx_gaus = np.argwhere(gaus < np.mean(gaus[n_idx_dir]))
+
+        print(str(n_idx_gaus.shape[0]) +
+              ' streamlines removed based on direction')
+        n_idx = np.concatenate((n_idx, n_idx_gaus))
 
     streams = remove_streamlines(streams, n_idx)
 

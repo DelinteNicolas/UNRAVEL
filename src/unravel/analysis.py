@@ -9,8 +9,7 @@ import numpy as np
 from unravel.core import get_microstructure_map, get_weighted_mean
 
 
-def get_tract_metric_along_trajectory(fixel_weights, metric_maps: list,
-                                      roi_sections):
+def get_metric_along_trajectory(fixel_weights, metric_maps: list, roi_sections):
     '''
 
 

@@ -264,7 +264,8 @@ def get_dist_from_median_trajectory(trk_file: str, point_array,
 
 def remove_outlier_streamlines(trk_file, point_array, out_file: str = None,
                                outlier_ratio: float = .5,
-                               remove_outlier_dir: bool = False):
+                               remove_outlier_dir: bool = False,
+                               verbose: bool = True):
     '''
     Removes streamlines that are outliers for more than half (default) of the
     bundle trajectory based on the distance to the mean trajectory. Can also
@@ -346,8 +347,9 @@ def remove_outlier_streamlines(trk_file, point_array, out_file: str = None,
         except ValueError:
             n_idx_gaus = n_idx_dir
 
-        print(str(n_idx_gaus.shape[0]) +
-              ' streamlines removed based on direction')
+        if verbose:
+            print(str(n_idx_gaus.shape[0]) +
+                  ' streamlines removed based on direction')
         n_idx = np.concatenate((n_idx, n_idx_gaus))
 
     streams = remove_streamlines(streams, n_idx)
@@ -355,7 +357,8 @@ def remove_outlier_streamlines(trk_file, point_array, out_file: str = None,
     if out_file is None:
         out_file = trk_file
 
-    print(str(len(n_idx))+' streamlines removed from tract')
+    if verbose:
+        print(str(len(n_idx))+' streamlines removed from tract')
     trk_new = StatefulTractogram(streams, trk, Space.VOX,
                                  origin=Origin.TRACKVIS)
     save_tractogram(trk_new, out_file)

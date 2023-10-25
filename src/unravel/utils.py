@@ -49,12 +49,12 @@ def peaks_to_RGB(peaks, frac=None, fvf=None, order: str = 'rgb'):
 
     Parameters
     ----------
-    peaksList : list of 4-D arrays
+    peaks : 5D array of shape (x,y,z,3,k)
         List of arrays containing the peaks of shape (x,y,z,3)
-    fracList : list of 3-D arrays, optional
+    frac : 4D array of shape (x,y,z,k), optional
         List of arrays of shape (x,y,z) containing the fraction of each fixel.
         The default is None.
-    fvfList : list of 3-D arrays, optional
+    fvf : 4D array of shape (x,y,z,k), optional
         List of arrays of shape (x,y,z) containing the fiber volume fraction of
         each fixel. The default is None.
     order : str, optional

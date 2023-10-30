@@ -14,6 +14,7 @@ from dipy.io.streamline import load_tractogram, save_tractogram
 from unravel.utils import tract_to_ROI, xyz_to_spherical
 from skimage.morphology import flood
 from unravel.core import angle_difference
+from sklearn.neighbors import KernelDensity
 
 
 def extract_nodes(trk_file: str, level: int = 3, smooth: bool = True):
@@ -314,38 +315,49 @@ def remove_outlier_streamlines(trk_file, point_array, out_file: str = None,
     if remove_outlier_dir:
 
         streams_data = trk.streamlines.get_data()
+
+        # Clustering end nodes based on streamline directions
         end_0 = streams_data[streams._offsets, :]
         end_1 = np.roll(streams_data[streams._offsets-1, :], -1, axis=0)
         dirs = end_1-end_0
-        average_dir = point_array[-1]-point_array[0]
+        kmeans = KMeans(n_clusters=2, n_init="auto").fit(dirs)
 
-        ang = angle_difference(np.stack((average_dir,)*end_0.shape[0], axis=0),
-                               dirs, direction=False)
+        # Assigning start and end based on clustering
+        start = end_0.copy()
+        end = end_1.copy()
+        start[kmeans.labels_ == 1, :] = end_1[kmeans.labels_ == 1, :]
+        end[kmeans.labels_ == 1, :] = end_0[kmeans.labels_ == 1, :]
 
-        # Computes angle difference to be considered outlier
-        q1, q3 = np.percentile(ang, [25, 75])
-        iqr = q3+1.5*(q3-q1)
-        n_idx_dir = np.argwhere(ang.flatten() > iqr)
+        # Only compute the mean end points of long fibers [Q3:Q3+1.5*IQR]
+        q1, q3 = np.percentile(streams._lengths, [25, 75])
+        long_streamlines = streams._lengths > q3
+        outlier_streamlines = streams._lengths > q3+1.5*(q3-q1)
+        selec_streamlines = long_streamlines*~outlier_streamlines
+        m_start = np.mean(start[selec_streamlines], axis=0)
+        m_end = np.mean(end[selec_streamlines], axis=0)
 
-        # Aligns direction to main tract direction
-        ang = angle_difference(np.stack((average_dir,)*dirs.shape[0], axis=0),
-                               dirs, direction=True)
-
-        dirs_oriented = np.where(ang > 90, -dirs, dirs)
+        average_dir = m_end-m_start
+        dirs_oriented = -start+end
 
         r, theta, phi = xyz_to_spherical(dirs_oriented)
         r_a, theta_a, phi_a = xyz_to_spherical(average_dir[np.newaxis, ...])
-        # Center on average direction
         X = np.stack((theta-theta_a, phi-phi_a))
-        # Range values between [-pi:pi]
         X = np.where(X < -np.pi, X+2*np.pi, X)
+        X = X*180/np.pi
+        X = X.T
 
-        gaus = gaussian_kde(X)(X)
+        bw = 1
+        nb = 10
+        bw = bw*nb
+        kde_model = KernelDensity(kernel='gaussian', bandwidth=bw).fit(X)
+        dens = np.exp(kde_model.score_samples(X))*len(X)
 
-        try:
-            n_idx_gaus = np.argwhere(gaus < np.max(gaus[n_idx_dir]))
-        except ValueError:
-            n_idx_gaus = n_idx_dir
+        kde_model_1 = KernelDensity(
+            kernel='gaussian', bandwidth=bw).fit(np.zeros((1, 2)))
+        t = np.exp(kde_model_1.score_samples(np.zeros((1, 2))))
+        thresh = t*nb
+
+        n_idx_gaus = np.argwhere(dens < thresh)
 
         if verbose:
             print(str(n_idx_gaus.shape[0]) +

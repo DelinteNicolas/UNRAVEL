@@ -495,3 +495,38 @@ def plot_streamline_trajectory(trk, resolution_increase: int = 1,
                    origin='lower', cmap='gray')
         plt.plot(x, y, '.-', c=c)
     plt.title('Streamline trajectory')
+
+
+def xyz_to_spherical(xyz):
+    '''
+
+
+    Parameters
+    ----------
+    xyz : array of size (n,3)
+        DESCRIPTION.
+
+    Returns
+    -------
+    r : TYPE
+        DESCRIPTION.
+    theta : TYPE
+        DESCRIPTION.
+    phi : TYPE
+        DESCRIPTION.
+
+    '''
+    xy = xyz[:, 0]**2 + xyz[:, 1]**2
+    r = np.sqrt(xy + xyz[:, 2]**2)
+    theta = np.arctan2(np.sqrt(xy), xyz[:, 2])
+    phi = np.arctan2(xyz[:, 1], xyz[:, 0])
+    return r, theta, phi
+
+
+def spherical_to_xyz(theta, phi):
+
+    x = np.sin(theta)*np.cos(phi)
+    y = np.sin(theta)*np.sin(phi)
+    z = np.cos(theta)
+
+    return x, y, z

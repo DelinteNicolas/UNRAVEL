@@ -337,14 +337,13 @@ def remove_outlier_streamlines(trk_file, point_array, out_file: str = None,
         m_end = np.mean(end[selec_streamlines], axis=0)
 
         average_dir = m_end-m_start
-        dirs_oriented = -start+end
 
-        r, theta, phi = xyz_to_spherical(dirs_oriented)
+        # Send to spherical coordinates in degrees centered on average dir
+        r, theta, phi = xyz_to_spherical(end-start)
         r_a, theta_a, phi_a = xyz_to_spherical(average_dir[np.newaxis, ...])
-        X = np.stack((theta-theta_a, phi-phi_a))
+        X = np.stack((theta-theta_a, phi-phi_a), axis=1)
         X = np.where(X < -np.pi, X+2*np.pi, X)
         X = X*180/np.pi
-        X = X.T
 
         bw = 1
         nb = 10
@@ -354,8 +353,7 @@ def remove_outlier_streamlines(trk_file, point_array, out_file: str = None,
 
         kde_model_1 = KernelDensity(
             kernel='gaussian', bandwidth=bw).fit(np.zeros((1, 2)))
-        t = np.exp(kde_model_1.score_samples(np.zeros((1, 2))))
-        thresh = t*nb
+        thresh = np.exp(kde_model_1.score_samples(np.zeros((1, 2))))*nb
 
         n_idx_gaus = np.argwhere(dens < thresh)
 

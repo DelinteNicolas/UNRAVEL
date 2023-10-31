@@ -6,11 +6,11 @@ Created on Fri Aug 18 18:23:26 2023
 """
 
 import numpy as np
+from itertools import combinations
 from unravel.core import get_microstructure_map, get_weighted_mean
 
 
-def get_tract_metric_along_trajectory(fixel_weights, metric_maps: list,
-                                      roi_sections):
+def get_metric_along_trajectory(fixel_weights, metric_maps: list, roi_sections):
     '''
 
 
@@ -56,3 +56,40 @@ def get_tract_metric_along_trajectory(fixel_weights, metric_maps: list,
         m_array[i], std_array[i] = mean, std
 
     return m_array, std_array
+
+
+def connectivity_matrix(streamlines, label_volume):
+    '''
+    Returns the symetric connectivity matrix of the stramlines. Usage of
+    trk.to_vox(), trk.to_corner() beforehand is highly recommended. This
+    fonction is x60 times faster than the implementation in Dipy.
+
+    Parameters
+    ----------
+    streamlines : streamline object
+        DESCRIPTION.
+    label_volume : 3D array of size (x,y,z)
+        Array containing the labels as int.
+
+    Returns
+    -------
+    matrix : 2D array
+        Connectivity matrix.
+
+    '''
+
+    matrix = np.zeros((np.max(label_volume)+1, np.max(label_volume)+1))
+
+    for sl in range(len(streamlines)):
+
+        x, y, z = np.floor(streamlines[sl].T).astype(int)
+
+        labels = label_volume[x, y, z]
+        crossed_labels = np.unique(labels)
+
+        for comb in combinations(crossed_labels, 2):
+            matrix[comb] += 1
+
+    matrix = matrix+matrix.T
+
+    return matrix

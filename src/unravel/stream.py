@@ -8,12 +8,11 @@ Created on Wed Aug 16 11:25:30 2023
 
 import numpy as np
 from sklearn.cluster import KMeans
-from scipy.stats import gaussian_kde
 from dipy.io.stateful_tractogram import Space, StatefulTractogram, Origin
 from dipy.io.streamline import load_tractogram, save_tractogram
 from unravel.utils import tract_to_ROI, xyz_to_spherical
 from skimage.morphology import flood
-from unravel.core import angle_difference
+from sklearn.neighbors import KernelDensity
 
 
 def extract_nodes(trk_file: str, level: int = 3, smooth: bool = True):
@@ -135,24 +134,28 @@ def extract_nodes(trk_file: str, level: int = 3, smooth: bool = True):
 
 def get_streamline_number_from_index(streams, index: int) -> int:
     '''
-
+    TODO: remove except and implement both for int and arrays correctly
 
     Parameters
     ----------
     streams : streamlines.array_sequence.ArraySequence
         DESCRIPTION.
-    index : int
+    index : int or array (n,1)
         Number of the tractography point (x,y,z).
 
     Returns
     -------
-    nb : int
+    nb : int or array(n,)
         Streamline number.
 
     '''
 
     offsets = np.append(streams._offsets, streams.total_nb_rows)
-    nb = int(np.argwhere(offsets-index > 0)[0, 0]-1)
+    isin = np.where(offsets-index > 0, 1, 0)
+    try:
+        nb = np.argwhere(np.roll(isin, -1, axis=1)-isin == 1)[:, 1]
+    except:
+        nb = np.argwhere(np.roll(isin, -1)-isin == 1)[0][0]
 
     return nb
 
@@ -264,7 +267,9 @@ def get_dist_from_median_trajectory(trk_file: str, point_array,
 
 def remove_outlier_streamlines(trk_file, point_array, out_file: str = None,
                                outlier_ratio: float = .5,
-                               remove_outlier_dir: bool = False):
+                               remove_outlier_dir: bool = False,
+                               verbose: bool = True, bandwidth: float = 0.2,
+                               neighbors_required: int = 5):
     '''
     Removes streamlines that are outliers for more than half (default) of the
     bundle trajectory based on the distance to the mean trajectory. Can also
@@ -284,6 +289,14 @@ def remove_outlier_streamlines(trk_file, point_array, out_file: str = None,
         the value removes less streamlines. The default is 0.5 (50%).
     remove_outlier_dir : bool, optional
         If True, removes streamlines whose direction are outliers.
+        The default is False.
+    verbose : bool, optional
+        If True, prints number of streamlines removed. The default is False.
+    bandwidth : float, optional.
+        Bandwidth for the KDE, recommended values : [0.1-5]. The default is 0.2.
+    neighbors_required : int, optional
+        Approximative number of neighboring points required to not be removed.
+        The default is 5.
 
     Returns
     -------
@@ -297,57 +310,124 @@ def remove_outlier_streamlines(trk_file, point_array, out_file: str = None,
 
     streams = trk.streamlines
 
-    dist, _ = get_dist_from_median_trajectory(trk_file, point_array)
+    bandwidth = 0.2
+    neighbors_required = 5
+    bandwidth = bandwidth*neighbors_required
+
+    streams_data = trk.streamlines.get_data()
+    dens = np.zeros((point_array.shape[0], len(streams._offsets)))
+
+    kde_model_1 = KernelDensity(
+        kernel='gaussian', bandwidth=bandwidth).fit(np.zeros((1, 2)))
+    t = np.exp(kde_model_1.score_samples(np.zeros((1, 2))))
+
+    for i, point in enumerate(point_array):
+
+        if i == 0:
+            continue
+        if i == point_array.shape[0]-1:
+            break
+
+        # Computing normal of perpendicular surface at midpoint
+        midpoint = point_array[i]
+        normal = point_array[i-1]-point_array[i+1]
+        normal = normal/np.linalg.norm(normal)
+
+        # Find indexes that cross the surface
+        ns = streams_data-midpoint
+        dot = np.sum(ns*normal, axis=1)
+        sign = np.where(dot > 0, 1, 0)
+        idx = np.argwhere(abs(np.roll(sign, 1)-sign) == 1)
+        idx = np.array(list(filter(lambda x: x not in streams._offsets, idx)))
+
+        # Find position
+        idx_pos = np.take_along_axis(streams_data, idx, axis=0)
+
+        # Project onto plane
+        ns_pos = idx_pos-midpoint
+        dot_pos = dot[idx[:, 0]]
+        proj_onto_plane = (ns_pos - dot_pos[..., np.newaxis]*normal) + midpoint
+
+        z_vec = np.array([0, 0, 1])
+        y_comp = z_vec - (z_vec@normal)*normal
+        y_comp = y_comp/np.linalg.norm(y_comp)
+        x_comp = np.cross(y_comp, normal)
+
+        proj_mat = -np.vstack([x_comp, y_comp])  # build projection matrix
+        points_2D = proj_onto_plane @ proj_mat.T       # apply projection
+
+        # TODO: replace by analytical equation to reduce number of func calls
+        kde_model = KernelDensity(
+            kernel='gaussian', bandwidth=bandwidth).fit(points_2D)
+        kde = np.exp(kde_model.score_samples(points_2D))*len(points_2D)
+
+        n = get_streamline_number_from_index(streams, idx)
+
+        # !!! Currently overwrites densities when a streamline crosses a plane
+        # multiple times
+        dens[i, n] = kde
 
     # Compute outliers
-    q1, q3 = np.percentile(dist, [25, 75], axis=1)
-    iqr = q3+1.5*(q3-q1)
-    outliers = dist > np.repeat(iqr[:, np.newaxis], dist.shape[1], axis=1)
+    iqr = t*neighbors_required
+    outliers = dens <= np.repeat(iqr[:, np.newaxis], dens.shape[1], axis=1)
+    outliers[dens == 0] = False
+    outliers = outliers[1:-1, :]
 
     # Remove if more than outlier_ratio of pathway is outlier
     n_sign = np.sum(outliers, axis=0)
-    n_val = np.sum(dist > 0, axis=0)
+    n_val = np.sum(dens > 0, axis=0)
     n_sign = np.where(n_sign > n_val*outlier_ratio, 1, 0)
     n_idx = np.argwhere(n_sign == 1)
 
     if remove_outlier_dir:
 
         streams_data = trk.streamlines.get_data()
+
+        # Clustering end nodes based on streamline directions
         end_0 = streams_data[streams._offsets, :]
         end_1 = np.roll(streams_data[streams._offsets-1, :], -1, axis=0)
         dirs = end_1-end_0
-        average_dir = point_array[-1]-point_array[0]
+        kmeans = KMeans(n_clusters=2, n_init="auto").fit(dirs)
 
-        ang = angle_difference(np.stack((average_dir,)*end_0.shape[0], axis=0),
-                               dirs, direction=False)
+        # Assigning start and end based on clustering
+        start = end_0.copy()
+        end = end_1.copy()
+        start[kmeans.labels_ == 1, :] = end_1[kmeans.labels_ == 1, :]
+        end[kmeans.labels_ == 1, :] = end_0[kmeans.labels_ == 1, :]
 
-        # Computes angle difference to be considered outlier
-        q1, q3 = np.percentile(ang, [25, 75])
-        iqr = q3+1.5*(q3-q1)
-        n_idx_dir = np.argwhere(ang.flatten() > iqr)
+        # Only compute the mean end points of long fibers [Q3:Q3+1.5*IQR]
+        q1, q3 = np.percentile(streams._lengths, [25, 75])
+        long_streamlines = streams._lengths > q3
+        outlier_streamlines = streams._lengths > q3+1.5*(q3-q1)
+        selec_streamlines = long_streamlines*~outlier_streamlines
+        m_start = np.mean(start[selec_streamlines], axis=0)
+        m_end = np.mean(end[selec_streamlines], axis=0)
 
-        # Aligns direction to main tract direction
-        ang = angle_difference(np.stack((average_dir,)*dirs.shape[0], axis=0),
-                               dirs, direction=True)
+        average_dir = m_end-m_start
 
-        dirs_oriented = np.where(ang > 90, -dirs, dirs)
-
-        r, theta, phi = xyz_to_spherical(dirs_oriented)
+        # Send to spherical coordinates in degrees centered on average dir
+        r, theta, phi = xyz_to_spherical(end-start)
         r_a, theta_a, phi_a = xyz_to_spherical(average_dir[np.newaxis, ...])
-        # Center on average direction
-        X = np.stack((theta-theta_a, phi-phi_a))
-        # Range values between [-pi:pi]
+        X = np.stack((theta-theta_a, phi-phi_a), axis=1)
         X = np.where(X < -np.pi, X+2*np.pi, X)
+        X = X*180/np.pi
 
-        gaus = gaussian_kde(X)(X)
+        bw = 1
+        nb = 10
+        bw = bw*nb
+        kde_model = KernelDensity(kernel='gaussian', bandwidth=bw).fit(X)
+        dens = np.exp(kde_model.score_samples(X))*len(X)
 
-        try:
-            n_idx_gaus = np.argwhere(gaus < np.max(gaus[n_idx_dir]))
-        except ValueError:
-            n_idx_gaus = n_idx_dir
+        # TODO: replace by analytical equation to reduce number of func calls
+        kde_model_1 = KernelDensity(
+            kernel='gaussian', bandwidth=bw).fit(np.zeros((1, 2)))
+        thresh = np.exp(kde_model_1.score_samples(np.zeros((1, 2))))*nb
 
-        print(str(n_idx_gaus.shape[0]) +
-              ' streamlines removed based on direction')
+        n_idx_gaus = np.argwhere(dens < thresh)
+
+        if verbose:
+            print(str(n_idx_gaus.shape[0]) +
+                  ' streamlines removed based on direction')
         n_idx = np.concatenate((n_idx, n_idx_gaus))
 
     streams = remove_streamlines(streams, n_idx)
@@ -355,7 +435,8 @@ def remove_outlier_streamlines(trk_file, point_array, out_file: str = None,
     if out_file is None:
         out_file = trk_file
 
-    print(str(len(n_idx))+' streamlines removed from tract')
+    if verbose:
+        print(str(len(n_idx))+' streamlines removed from tract')
     trk_new = StatefulTractogram(streams, trk, Space.VOX,
                                  origin=Origin.TRACKVIS)
     save_tractogram(trk_new, out_file)

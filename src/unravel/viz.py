@@ -9,6 +9,7 @@ import numpy as np
 from tqdm import tqdm
 from PIL import Image
 from scipy.ndimage import zoom
+from scipy.interpolate import Akima1DInterpolator
 import pyvista
 import matplotlib.pyplot as plt
 from matplotlib import cm
@@ -480,3 +481,39 @@ def plot_roi_sections(roi, voxel: bool = False, background: str = 'grey'):
         vol.plot(cmap='Set3', background=background, scalars='labels')
     else:
         smooth.plot(cmap='Set3', background=background, scalars='labels')
+
+
+def plot_metric_along_trajectory(mean, dev, new_fig: bool = True,
+                                 label: str = ''):
+    '''
+    Plots the output of unravel.analysis.get_metric_along_trajectory.
+
+    Parameters
+    ----------
+    mean : 1D array of size (n)
+        DESCRIPTION.
+    dev : 1D array of size (n)
+        DESCRIPTION.
+    new_fig : bool, optional
+        If false, print the plot on the previous 'plt' figure. Useful when
+        plotting multiple lines in a single plot. The default is True.
+    label : str, optional
+        Line label. The default is ''.
+
+    Returns
+    -------
+    None.
+
+    '''
+
+    spline = Akima1DInterpolator(range(len(mean)), mean)
+    std_spline = Akima1DInterpolator(range(len(mean)), dev)
+    xs = np.arange(1, len(mean)-1, 0.1)
+    ys = spline(xs)
+    stds = std_spline(xs)
+
+    if new_fig:
+        plt.figure()
+    plt.plot(xs, ys, label=label)
+    plt.fill_between(xs, np.array(ys)-np.array(stds),
+                     np.array(ys) + np.array(stds), alpha=.15)

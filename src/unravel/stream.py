@@ -8,12 +8,10 @@ Created on Wed Aug 16 11:25:30 2023
 
 import numpy as np
 from sklearn.cluster import KMeans
-from scipy.stats import gaussian_kde
 from dipy.io.stateful_tractogram import Space, StatefulTractogram, Origin
 from dipy.io.streamline import load_tractogram, save_tractogram
 from unravel.utils import tract_to_ROI, xyz_to_spherical
 from skimage.morphology import flood
-from unravel.core import angle_difference
 from sklearn.neighbors import KernelDensity
 
 
@@ -136,24 +134,28 @@ def extract_nodes(trk_file: str, level: int = 3, smooth: bool = True):
 
 def get_streamline_number_from_index(streams, index: int) -> int:
     '''
-
+    TODO: remove except and implement both for int and arrays correctly
 
     Parameters
     ----------
     streams : streamlines.array_sequence.ArraySequence
         DESCRIPTION.
-    index : int
+    index : int or array (n,1)
         Number of the tractography point (x,y,z).
 
     Returns
     -------
-    nb : int
+    nb : int or array(n,)
         Streamline number.
 
     '''
 
     offsets = np.append(streams._offsets, streams.total_nb_rows)
-    nb = int(np.argwhere(offsets-index > 0)[0, 0]-1)
+    isin = np.where(offsets-index > 0, 1, 0)
+    try:
+        nb = np.argwhere(np.roll(isin, -1, axis=1)-isin == 1)[:, 1]
+    except:
+        nb = np.argwhere(np.roll(isin, -1)-isin == 1)[0][0]
 
     return nb
 
@@ -266,7 +268,8 @@ def get_dist_from_median_trajectory(trk_file: str, point_array,
 def remove_outlier_streamlines(trk_file, point_array, out_file: str = None,
                                outlier_ratio: float = .5,
                                remove_outlier_dir: bool = False,
-                               verbose: bool = True):
+                               verbose: bool = True, bandwidth: float = 0.2,
+                               neighbors_required: int = 5):
     '''
     Removes streamlines that are outliers for more than half (default) of the
     bundle trajectory based on the distance to the mean trajectory. Can also
@@ -286,6 +289,14 @@ def remove_outlier_streamlines(trk_file, point_array, out_file: str = None,
         the value removes less streamlines. The default is 0.5 (50%).
     remove_outlier_dir : bool, optional
         If True, removes streamlines whose direction are outliers.
+        The default is False.
+    verbose : bool, optional
+        If True, prints number of streamlines removed. The default is False.
+    bandwidth : float, optional.
+        Bandwidth for the KDE, recommended values : [0.1-5]. The default is 0.2.
+    neighbors_required : int, optional
+        Approximative number of neighboring points required to not be removed.
+        The default is 5.
 
     Returns
     -------
@@ -298,17 +309,16 @@ def remove_outlier_streamlines(trk_file, point_array, out_file: str = None,
     trk.to_corner()
 
     streams = trk.streamlines
-    outlier_ratio = 0
-    # 0.5 [0.1,5], 0.25
-    bw = 0.2
-    neigbhors_num = 5
-    bw = bw*neigbhors_num
+
+    bandwidth = 0.2
+    neighbors_required = 5
+    bandwidth = bandwidth*neighbors_required
 
     streams_data = trk.streamlines.get_data()
     dens = np.zeros((point_array.shape[0], len(streams._offsets)))
 
     kde_model_1 = KernelDensity(
-        kernel='gaussian', bandwidth=bw).fit(np.zeros((1, 2)))
+        kernel='gaussian', bandwidth=bandwidth).fit(np.zeros((1, 2)))
     t = np.exp(kde_model_1.score_samples(np.zeros((1, 2))))
 
     for i, point in enumerate(point_array):
@@ -346,24 +356,19 @@ def remove_outlier_streamlines(trk_file, point_array, out_file: str = None,
         proj_mat = -np.vstack([x_comp, y_comp])  # build projection matrix
         points_2D = proj_onto_plane @ proj_mat.T       # apply projection
 
+        # TODO: replace by analytical equation to reduce number of func calls
         kde_model = KernelDensity(
-            kernel='gaussian', bandwidth=bw).fit(points_2D)
+            kernel='gaussian', bandwidth=bandwidth).fit(points_2D)
         kde = np.exp(kde_model.score_samples(points_2D))*len(points_2D)
 
-        for j, i_kde in enumerate(kde):
+        n = get_streamline_number_from_index(streams, idx)
 
-            n = get_streamline_number_from_index(streams, idx[j])
-            if dens[i, n] != 0:
-                dens[i, n] = min(dens[i, n], i_kde)
-            else:
-                dens[i, n] = i_kde
-
-        idx_s = kde.argsort()
-        idx_pos, points_2D, kde = idx_pos[idx_s], points_2D[idx_s], kde[idx_s]
+        # !!! Currently overwrites densities when a streamline crosses a plane
+        # multiple times
+        dens[i, n] = kde
 
     # Compute outliers
-
-    iqr = t*neigbhors_num
+    iqr = t*neighbors_required
     outliers = dens <= np.repeat(iqr[:, np.newaxis], dens.shape[1], axis=1)
     outliers[dens == 0] = False
     outliers = outliers[1:-1, :]
@@ -413,6 +418,7 @@ def remove_outlier_streamlines(trk_file, point_array, out_file: str = None,
         kde_model = KernelDensity(kernel='gaussian', bandwidth=bw).fit(X)
         dens = np.exp(kde_model.score_samples(X))*len(X)
 
+        # TODO: replace by analytical equation to reduce number of func calls
         kde_model_1 = KernelDensity(
             kernel='gaussian', bandwidth=bw).fit(np.zeros((1, 2)))
         thresh = np.exp(kde_model_1.score_samples(np.zeros((1, 2))))*nb

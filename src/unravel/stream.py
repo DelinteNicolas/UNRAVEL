@@ -298,17 +298,79 @@ def remove_outlier_streamlines(trk_file, point_array, out_file: str = None,
     trk.to_corner()
 
     streams = trk.streamlines
+    outlier_ratio = 0
+    # 0.5 [0.1,5], 0.25
+    bw = 0.2
+    neigbhors_num = 5
+    bw = bw*neigbhors_num
 
-    dist, _ = get_dist_from_median_trajectory(trk_file, point_array)
+    streams_data = trk.streamlines.get_data()
+    dens = np.zeros((point_array.shape[0], len(streams._offsets)))
+
+    kde_model_1 = KernelDensity(
+        kernel='gaussian', bandwidth=bw).fit(np.zeros((1, 2)))
+    t = np.exp(kde_model_1.score_samples(np.zeros((1, 2))))
+
+    for i, point in enumerate(point_array):
+
+        if i == 0:
+            continue
+        if i == point_array.shape[0]-1:
+            break
+
+        # Computing normal of perpendicular surface at midpoint
+        midpoint = point_array[i]
+        normal = point_array[i-1]-point_array[i+1]
+        normal = normal/np.linalg.norm(normal)
+
+        # Find indexes that cross the surface
+        ns = streams_data-midpoint
+        dot = np.sum(ns*normal, axis=1)
+        sign = np.where(dot > 0, 1, 0)
+        idx = np.argwhere(abs(np.roll(sign, 1)-sign) == 1)
+        idx = np.array(list(filter(lambda x: x not in streams._offsets, idx)))
+
+        # Find position
+        idx_pos = np.take_along_axis(streams_data, idx, axis=0)
+
+        # Project onto plane
+        ns_pos = idx_pos-midpoint
+        dot_pos = dot[idx[:, 0]]
+        proj_onto_plane = (ns_pos - dot_pos[..., np.newaxis]*normal) + midpoint
+
+        z_vec = np.array([0, 0, 1])
+        y_comp = z_vec - (z_vec@normal)*normal
+        y_comp = y_comp/np.linalg.norm(y_comp)
+        x_comp = np.cross(y_comp, normal)
+
+        proj_mat = -np.vstack([x_comp, y_comp])  # build projection matrix
+        points_2D = proj_onto_plane @ proj_mat.T       # apply projection
+
+        kde_model = KernelDensity(
+            kernel='gaussian', bandwidth=bw).fit(points_2D)
+        kde = np.exp(kde_model.score_samples(points_2D))*len(points_2D)
+
+        for j, i_kde in enumerate(kde):
+
+            n = get_streamline_number_from_index(streams, idx[j])
+            if dens[i, n] != 0:
+                dens[i, n] = min(dens[i, n], i_kde)
+            else:
+                dens[i, n] = i_kde
+
+        idx_s = kde.argsort()
+        idx_pos, points_2D, kde = idx_pos[idx_s], points_2D[idx_s], kde[idx_s]
 
     # Compute outliers
-    q1, q3 = np.percentile(dist, [25, 75], axis=1)
-    iqr = q3+1.5*(q3-q1)
-    outliers = dist > np.repeat(iqr[:, np.newaxis], dist.shape[1], axis=1)
+
+    iqr = t*neigbhors_num
+    outliers = dens <= np.repeat(iqr[:, np.newaxis], dens.shape[1], axis=1)
+    outliers[dens == 0] = False
+    outliers = outliers[1:-1, :]
 
     # Remove if more than outlier_ratio of pathway is outlier
     n_sign = np.sum(outliers, axis=0)
-    n_val = np.sum(dist > 0, axis=0)
+    n_val = np.sum(dens > 0, axis=0)
     n_sign = np.where(n_sign > n_val*outlier_ratio, 1, 0)
     n_idx = np.argwhere(n_sign == 1)
 

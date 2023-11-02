@@ -134,7 +134,6 @@ def extract_nodes(trk_file: str, level: int = 3, smooth: bool = True):
 
 def get_streamline_number_from_index(streams, index: int) -> int:
     '''
-    TODO: remove except and implement both for int and arrays correctly
 
     Parameters
     ----------
@@ -150,12 +149,12 @@ def get_streamline_number_from_index(streams, index: int) -> int:
 
     '''
 
-    offsets = np.append(streams._offsets, streams.total_nb_rows)
+    offsets = np.append(streams._offsets, len(streams._data))
     isin = np.where(offsets-index > 0, 1, 0)
-    try:
-        nb = np.argwhere(np.roll(isin, -1, axis=1)-isin == 1)[:, 1]
-    except:
+    if type(index) == int:
         nb = np.argwhere(np.roll(isin, -1)-isin == 1)[0][0]
+    else:
+        nb = np.argwhere(np.roll(isin, -1, axis=1)-isin == 1)[:, 1]
 
     return nb
 

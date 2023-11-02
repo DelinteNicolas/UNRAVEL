@@ -363,9 +363,10 @@ def remove_outlier_streamlines(trk_file, point_array, out_file: str = None,
 
         n = get_streamline_number_from_index(streams, idx)
 
-        # !!! Currently overwrites densities when a streamline crosses a plane
-        # multiple times
-        dens[i, n] = kde
+        # Saves densities in decreasing order to keep worse density of
+        # streamlines corssing plane multiple times
+        kde_decrease_idx = (-kde).argsort()
+        dens[i, n[kde_decrease_idx]] = kde[kde_decrease_idx]
 
     # Compute outliers
     iqr = t*neighbors_required

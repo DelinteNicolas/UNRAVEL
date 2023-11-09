@@ -316,10 +316,6 @@ def remove_outlier_streamlines(trk_file, point_array, out_file: str = None,
     streams_data = trk.streamlines.get_data()
     dens = np.zeros((point_array.shape[0], len(streams._offsets)))
 
-    kde_model_1 = KernelDensity(
-        kernel='gaussian', bandwidth=bandwidth).fit(np.zeros((1, 2)))
-    t = np.exp(kde_model_1.score_samples(np.zeros((1, 2))))
-
     for i, point in enumerate(point_array):
 
         if i == 0:
@@ -355,7 +351,6 @@ def remove_outlier_streamlines(trk_file, point_array, out_file: str = None,
         proj_mat = -np.vstack([x_comp, y_comp])  # build projection matrix
         points_2D = proj_onto_plane @ proj_mat.T       # apply projection
 
-        # TODO: replace by analytical equation to reduce number of func calls
         kde_model = KernelDensity(
             kernel='gaussian', bandwidth=bandwidth).fit(points_2D)
         kde = np.exp(kde_model.score_samples(points_2D))*len(points_2D)
@@ -368,8 +363,8 @@ def remove_outlier_streamlines(trk_file, point_array, out_file: str = None,
         dens[i, n[kde_decrease_idx]] = kde[kde_decrease_idx]
 
     # Compute outliers
-    iqr = t*neighbors_required
-    outliers = dens <= np.repeat(iqr[:, np.newaxis], dens.shape[1], axis=1)
+    t = neighbors_required/(2*np.pi*bandwidth**2)
+    outliers = dens <= np.repeat(t[:, np.newaxis], dens.shape[1], axis=1)
     outliers[dens == 0] = False
     outliers = outliers[1:-1, :]
 
@@ -418,10 +413,7 @@ def remove_outlier_streamlines(trk_file, point_array, out_file: str = None,
         kde_model = KernelDensity(kernel='gaussian', bandwidth=bw).fit(X)
         dens = np.exp(kde_model.score_samples(X))*len(X)
 
-        # TODO: replace by analytical equation to reduce number of func calls
-        kde_model_1 = KernelDensity(
-            kernel='gaussian', bandwidth=bw).fit(np.zeros((1, 2)))
-        thresh = np.exp(kde_model_1.score_samples(np.zeros((1, 2))))*nb
+        thresh = nb/(2*np.pi*bandwidth**2)
 
         n_idx_gaus = np.argwhere(dens < thresh)
 

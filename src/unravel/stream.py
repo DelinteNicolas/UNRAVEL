@@ -268,7 +268,9 @@ def remove_outlier_streamlines(trk_file, point_array, out_file: str = None,
                                outlier_ratio: float = .5,
                                remove_outlier_dir: bool = False,
                                verbose: bool = True, bandwidth: float = 0.2,
-                               neighbors_required: int = 5):
+                               neighbors_required: int = 5,
+                               bandwidth_dir: float = 1,
+                               neighbors_required_dir: int = 10):
     '''
     Removes streamlines that are outliers for more than half (default) of the
     bundle trajectory based on the distance to the mean trajectory. Can also
@@ -296,6 +298,11 @@ def remove_outlier_streamlines(trk_file, point_array, out_file: str = None,
     neighbors_required : int, optional
         Approximative number of neighboring points required to not be removed.
         The default is 5.
+    bandwidth_dir : float, optional.
+        Bandwidth for the KDE, recommended values : [0.1-5]. The default is 1.
+    neighbors_required_dir : int, optional
+        Approximative number of neighboring points required to not be removed.
+        The default is 10.
 
     Returns
     -------
@@ -309,8 +316,6 @@ def remove_outlier_streamlines(trk_file, point_array, out_file: str = None,
 
     streams = trk.streamlines
 
-    bandwidth = 0.2
-    neighbors_required = 5
     bandwidth = bandwidth*neighbors_required
 
     streams_data = trk.streamlines.get_data()
@@ -407,13 +412,13 @@ def remove_outlier_streamlines(trk_file, point_array, out_file: str = None,
         X = np.where(X < -np.pi, X+2*np.pi, X)
         X = X*180/np.pi
 
-        bw = 1
-        nb = 10
+        bw = bandwidth_dir
+        nb = neighbors_required_dir
         bw = bw*nb
         kde_model = KernelDensity(kernel='gaussian', bandwidth=bw).fit(X)
         dens = np.exp(kde_model.score_samples(X))*len(X)
 
-        thresh = nb/(2*np.pi*bandwidth**2)
+        thresh = nb/(2*np.pi*bw**2)
 
         n_idx_gaus = np.argwhere(dens < thresh)
 

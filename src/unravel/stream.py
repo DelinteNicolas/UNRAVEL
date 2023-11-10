@@ -134,7 +134,6 @@ def extract_nodes(trk_file: str, level: int = 3, smooth: bool = True):
 
 def get_streamline_number_from_index(streams, index: int) -> int:
     '''
-    TODO: remove except and implement both for int and arrays correctly
 
     Parameters
     ----------
@@ -150,12 +149,12 @@ def get_streamline_number_from_index(streams, index: int) -> int:
 
     '''
 
-    offsets = np.append(streams._offsets, streams.total_nb_rows)
+    offsets = np.append(streams._offsets, len(streams._data))
     isin = np.where(offsets-index > 0, 1, 0)
-    try:
-        nb = np.argwhere(np.roll(isin, -1, axis=1)-isin == 1)[:, 1]
-    except:
+    if type(index) == int:
         nb = np.argwhere(np.roll(isin, -1)-isin == 1)[0][0]
+    else:
+        nb = np.argwhere(np.roll(isin, -1, axis=1)-isin == 1)[:, 1]
 
     return nb
 
@@ -269,7 +268,9 @@ def remove_outlier_streamlines(trk_file, point_array, out_file: str = None,
                                outlier_ratio: float = .5,
                                remove_outlier_dir: bool = False,
                                verbose: bool = True, bandwidth: float = 0.2,
-                               neighbors_required: int = 5):
+                               neighbors_required: int = 5,
+                               bandwidth_dir: float = 1,
+                               neighbors_required_dir: int = 10):
     '''
     Removes streamlines that are outliers for more than half (default) of the
     bundle trajectory based on the distance to the mean trajectory. Can also
@@ -297,6 +298,11 @@ def remove_outlier_streamlines(trk_file, point_array, out_file: str = None,
     neighbors_required : int, optional
         Approximative number of neighboring points required to not be removed.
         The default is 5.
+    bandwidth_dir : float, optional.
+        Bandwidth for the KDE, recommended values : [0.1-5]. The default is 1.
+    neighbors_required_dir : int, optional
+        Approximative number of neighboring points required to not be removed.
+        The default is 10.
 
     Returns
     -------
@@ -310,16 +316,10 @@ def remove_outlier_streamlines(trk_file, point_array, out_file: str = None,
 
     streams = trk.streamlines
 
-    bandwidth = 0.2
-    neighbors_required = 5
     bandwidth = bandwidth*neighbors_required
 
     streams_data = trk.streamlines.get_data()
     dens = np.zeros((point_array.shape[0], len(streams._offsets)))
-
-    kde_model_1 = KernelDensity(
-        kernel='gaussian', bandwidth=bandwidth).fit(np.zeros((1, 2)))
-    t = np.exp(kde_model_1.score_samples(np.zeros((1, 2))))
 
     for i, point in enumerate(point_array):
 
@@ -356,20 +356,20 @@ def remove_outlier_streamlines(trk_file, point_array, out_file: str = None,
         proj_mat = -np.vstack([x_comp, y_comp])  # build projection matrix
         points_2D = proj_onto_plane @ proj_mat.T       # apply projection
 
-        # TODO: replace by analytical equation to reduce number of func calls
         kde_model = KernelDensity(
             kernel='gaussian', bandwidth=bandwidth).fit(points_2D)
         kde = np.exp(kde_model.score_samples(points_2D))*len(points_2D)
 
         n = get_streamline_number_from_index(streams, idx)
 
-        # !!! Currently overwrites densities when a streamline crosses a plane
-        # multiple times
-        dens[i, n] = kde
+        # Saves densities in decreasing order to keep worse density of
+        # streamlines crossing plane multiple times
+        kde_decrease_idx = (-kde).argsort()
+        dens[i, n[kde_decrease_idx]] = kde[kde_decrease_idx]
 
     # Compute outliers
-    iqr = t*neighbors_required
-    outliers = dens <= np.repeat(iqr[:, np.newaxis], dens.shape[1], axis=1)
+    t = neighbors_required/(2*np.pi*bandwidth**2)
+    outliers = dens <= np.repeat(t[:, np.newaxis], dens.shape[1], axis=1)
     outliers[dens == 0] = False
     outliers = outliers[1:-1, :]
 
@@ -412,16 +412,13 @@ def remove_outlier_streamlines(trk_file, point_array, out_file: str = None,
         X = np.where(X < -np.pi, X+2*np.pi, X)
         X = X*180/np.pi
 
-        bw = 1
-        nb = 10
+        bw = bandwidth_dir
+        nb = neighbors_required_dir
         bw = bw*nb
         kde_model = KernelDensity(kernel='gaussian', bandwidth=bw).fit(X)
         dens = np.exp(kde_model.score_samples(X))*len(X)
 
-        # TODO: replace by analytical equation to reduce number of func calls
-        kde_model_1 = KernelDensity(
-            kernel='gaussian', bandwidth=bw).fit(np.zeros((1, 2)))
-        thresh = np.exp(kde_model_1.score_samples(np.zeros((1, 2))))*nb
+        thresh = nb/(2*np.pi*bw**2)
 
         n_idx_gaus = np.argwhere(dens < thresh)
 

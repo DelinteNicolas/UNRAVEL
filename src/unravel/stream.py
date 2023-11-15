@@ -369,7 +369,7 @@ def remove_outlier_streamlines(trk_file, point_array, out_file: str = None,
 
     # Compute outliers
     t = neighbors_required/(2*np.pi*bandwidth**2)
-    outliers = dens <= np.repeat(t[:, np.newaxis], dens.shape[1], axis=1)
+    outliers = dens <= t
     outliers[dens == 0] = False
     outliers = outliers[1:-1, :]
 

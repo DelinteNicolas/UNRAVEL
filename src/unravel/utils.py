@@ -319,7 +319,8 @@ def get_streamline_angle(trk, resolution_increase: int = 1):
 
 
 def get_streamline_density(trk, resolution_increase: int = 1,
-                           color: bool = False, subsegment: int = 10):
+                           color: bool = False, subsegment: int = 10,
+                           norm_all_voxels: bool = True):
     '''
     Get the total segment length from a tract specified in trk.
 
@@ -334,6 +335,13 @@ def get_streamline_density(trk, resolution_increase: int = 1,
         If True, output a RGB volume with colors corresponding to the
         directions of the streamlines, modulated by streamline density.
         The default is False.
+    subsegment : int, optional
+        Divides the streamline segment into n subsegments. Increases spatial
+        resolution of streamline segments and computation time. The default
+        is 10.
+    norm_all_voxels : bool, optional
+        If True, sets all color voxel with a maximum intensity. Else, the
+        intensity is weighted by the number of fibers. The default is True.
 
     Returns
     -------
@@ -373,7 +381,7 @@ def get_streamline_density(trk, resolution_increase: int = 1,
                        dtype=np.float32)
         np.add.at(rgb, (x, y, z), abs(vs))
 
-        return normalize_color(rgb, norm_all_voxels=True)
+        return normalize_color(rgb, norm_all_voxels=norm_all_voxels)
 
     else:
         coef = np.ones(x.shape, dtype=np.float32)
@@ -408,7 +416,7 @@ def normalize_color(rgb, norm_all_voxels: bool = False):
     if norm_all_voxels:
         norm = np.linalg.norm(rgb, axis=3)
         norm = np.stack((norm,)*3, axis=3, dtype=np.float32)
-        norm = np.divide(rgb, norm, dtype=np.float32,
+        norm = np.divide(rgb, norm, dtype=np.float64,
                          where=np.sum(rgb, axis=3, keepdims=True) != 0)
     else:
         norm = (rgb/np.max(rgb)).astype(np.float32)

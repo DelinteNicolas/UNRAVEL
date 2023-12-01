@@ -58,7 +58,7 @@ def get_metric_along_trajectory(fixel_weights, metric_maps: list, roi_sections):
     return m_array, std_array
 
 
-def connectivity_matrix(streamlines, label_volume):
+def connectivity_matrix(streamlines, label_volume, inclusive: bool = True):
     '''
     Returns the symetric connectivity matrix of the stramlines. Usage of
     trk.to_vox(), trk.to_corner() beforehand is highly recommended. This
@@ -70,6 +70,9 @@ def connectivity_matrix(streamlines, label_volume):
         DESCRIPTION.
     label_volume : 3D array of size (x,y,z)
         Array containing the labels as int.
+    inclusive: bool, optional
+        Whether to analyze the entire streamline, as opposed to just the
+        endpoints.
 
     Returns
     -------
@@ -78,14 +81,16 @@ def connectivity_matrix(streamlines, label_volume):
 
     '''
 
+    label_volume = label_volume.astype(int)
     matrix = np.zeros((np.max(label_volume)+1, np.max(label_volume)+1))
 
-    for sl in range(len(streamlines)):
+    if not inclusive:
+        streamlines = [sl[0::len(sl)-1] for sl in streamlines]
 
-        x, y, z = np.floor(streamlines[sl].T).astype(int)
+    for sl in streamlines:
 
-        labels = label_volume[x, y, z]
-        crossed_labels = np.unique(labels)
+        x, y, z = np.floor(sl.T).astype(int)
+        crossed_labels = np.unique(label_volume[x, y, z])
 
         for comb in combinations(crossed_labels, 2):
             matrix[comb] += 1

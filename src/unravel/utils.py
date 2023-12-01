@@ -74,9 +74,6 @@ def peaks_to_RGB(peaks, frac=None, fvf=None, order: str = 'rgb'):
 
     K = peaks.shape[-1]
 
-    if frac is None and fvf is None:
-        normalize = True
-
     if frac is None:
         frac = np.ones(peaks.shape[:3]+(K,))/K
     frac = np.stack((frac,)*3, axis=3)
@@ -88,7 +85,7 @@ def peaks_to_RGB(peaks, frac=None, fvf=None, order: str = 'rgb'):
     rgb = np.sum(abs(peaks)*frac*fvf, axis=-1)
 
     # Normalize
-    if normalize:
+    if frac is None and fvf is None:
         rgb = normalize_color(rgb, norm_all_voxels=True)
 
     # Color order

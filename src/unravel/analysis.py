@@ -60,9 +60,10 @@ def get_metric_along_trajectory(fixel_weights, metric_maps: list, roi_sections):
 
 def connectivity_matrix(streamlines, label_volume, inclusive: bool = True):
     '''
-    Returns the symetric connectivity matrix of the stramlines. Usage of
+    Returns the symetric connectivity matrix of the streamlines. Usage of
     trk.to_vox(), trk.to_corner() beforehand is highly recommended. This
-    fonction is x60 times faster than the implementation in Dipy.
+    fonction is at least x6 times faster than the implementation in Dipy
+    when inclusive is set to True.
 
     Parameters
     ----------

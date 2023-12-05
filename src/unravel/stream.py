@@ -369,8 +369,11 @@ def remove_outlier_streamlines(trk_file, point_array, out_file: str = None,
 
     # Compute outliers
     t = neighbors_required/(2*np.pi*bandwidth**2)
+    m = np.mean(dens, axis=1, where=dens != 0)
+    m = np.repeat(m[..., np.newaxis], dens.shape[1], axis=1)
     outliers = dens <= t
     outliers[dens == 0] = False
+    outliers[dens > m] = False
     outliers = outliers[1:-1, :]
 
     # Remove if more than outlier_ratio of pathway is outlier

@@ -270,7 +270,8 @@ def remove_outlier_streamlines(trk_file, point_array, out_file: str = None,
                                verbose: bool = True, bandwidth: float = 0.2,
                                neighbors_required: int = 5,
                                bandwidth_dir: float = 1,
-                               neighbors_required_dir: int = 10):
+                               neighbors_required_dir: int = 10,
+                               keep_ratio: float = 0.5):
     '''
     Removes streamlines that are outliers for more than half (default) of the
     bundle trajectory based on the distance to the mean trajectory. Can also
@@ -303,6 +304,9 @@ def remove_outlier_streamlines(trk_file, point_array, out_file: str = None,
     neighbors_required_dir : int, optional
         Approximative number of neighboring points required to not be removed.
         The default is 10.
+    keep_ratio : float, optional
+        Maximum percentage of streamlines that can be removed.
+        The default is 0.5.
 
     Returns
     -------
@@ -379,8 +383,13 @@ def remove_outlier_streamlines(trk_file, point_array, out_file: str = None,
     # Remove if more than outlier_ratio of pathway is outlier
     n_sign = np.sum(outliers, axis=0)
     n_val = np.sum(dens > 0, axis=0)
-    n_sign = np.where(n_sign > n_val*outlier_ratio, 1, 0)
-    n_idx = np.argwhere(n_sign == 1)
+    n_idx = np.argwhere(n_sign > n_val*outlier_ratio)
+
+    if len(n_idx) > keep_ratio*len(n_sign):
+
+        sorted_indexes = np.argsort(-n_sign)
+        keep_num_idx = int(len(n_sign)*keep_ratio)
+        n_idx = sorted_indexes[:keep_num_idx]
 
     if remove_outlier_dir:
 

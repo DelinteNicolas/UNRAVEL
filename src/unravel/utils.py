@@ -76,10 +76,14 @@ def peaks_to_RGB(peaks, frac=None, fvf=None, order: str = 'rgb'):
 
     if frac is None:
         frac = np.ones(peaks.shape[:3]+(K,))/K
+    elif len(frac.shape) <= 3:
+        frac = frac[..., np.newaxis]
     frac = np.stack((frac,)*3, axis=3)
 
     if fvf is None:
         fvf = np.ones(peaks.shape[:3]+(K,))
+    elif len(fvf.shape) <= 3:
+        fvf = fvf[..., np.newaxis]
     fvf = np.stack((fvf,)*3, axis=3)
 
     rgb = np.sum(abs(peaks)*frac*fvf, axis=-1)

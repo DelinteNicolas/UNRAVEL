@@ -32,15 +32,15 @@ def get_metric_along_trajectory(fixel_weights, metric_maps, roi_sections):
 
     '''
 
-    m_array = np.zeros(np.max(roi_sections))
-    std_array = np.zeros(np.max(roi_sections))
+    m_array = np.zeros(np.max(roi_sections)+1)
+    std_array = np.zeros(np.max(roi_sections)+1)
 
     if len(metric_maps.shape) <= 3:
         fixel_weights = fixel_weights[..., np.newaxis]
 
     micro_map = get_microstructure_map(fixel_weights, metric_maps)
 
-    for i in range(np.max(roi_sections)):
+    for i in range(np.max(roi_sections)+1):
 
         if i == 0:
             continue

@@ -10,7 +10,7 @@ from itertools import combinations
 from unravel.core import get_microstructure_map, get_weighted_mean
 
 
-def get_metric_along_trajectory(fixel_weights, metric_maps: list, roi_sections):
+def get_metric_along_trajectory(fixel_weights, metric_maps, roi_sections):
     '''
 
 
@@ -18,8 +18,8 @@ def get_metric_along_trajectory(fixel_weights, metric_maps: list, roi_sections):
     ----------
     fixel_weights : 4-D array of shape (x,y,z,K)
         Array containing the relative weights of the K fixels in each voxel.
-    metric_maps : list
-        List of K 3-D arrays of shape (x,y,z) containing metric estimations.
+    metric_maps : 4D array of shape (x,y,z,3,k)
+        List of K 4D arrays of shape (x,y,z) containing metric estimations.
     roi_sections : 3D array of size (x,y,z)
         Labeled array containing the volumes of the section of the tract.
 
@@ -35,7 +35,7 @@ def get_metric_along_trajectory(fixel_weights, metric_maps: list, roi_sections):
     m_array = np.zeros(np.max(roi_sections))
     std_array = np.zeros(np.max(roi_sections))
 
-    if len(metric_maps) == 1:
+    if len(metric_maps.shape) <= 3:
         fixel_weights = fixel_weights[..., np.newaxis]
 
     micro_map = get_microstructure_map(fixel_weights, metric_maps)

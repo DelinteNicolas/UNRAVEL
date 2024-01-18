@@ -61,10 +61,21 @@ def extract_nodes(trk_file: str, level: int = 3, smooth: bool = True):
     m_start = np.mean(start[selec_streamlines], axis=0)
     m_end = np.mean(end[selec_streamlines], axis=0)
 
-    # Re-orders start and end based on main axial direction
-    # !!! does not work on uni-hemisperal left-right tracts
-    main_dir = np.argmax(np.abs(m_start-m_end))
-    if m_start[main_dir] > m_end[main_dir]:
+    # Re-orders start and end based on main axial direction,
+    # first main direction or three-way vote
+    # !!! does not always work
+    diff_abs = np.abs(m_start-m_end)
+    main_dir = np.argmax(diff_abs)
+    small_dir = np.argmin(diff_abs)
+    vote = np.sum(np.where(m_start-m_end > 0, 1, -1))
+    if diff_abs[main_dir] > (np.sum(diff_abs)-diff_abs[main_dir]):
+        if m_start[main_dir] > m_end[main_dir]:
+            m_start, m_end = m_end, m_start
+    elif diff_abs[small_dir] < (np.sum(diff_abs)-diff_abs[small_dir])/4:
+        idx = 1 if small_dir == 0 else 0
+        if m_start[idx] > m_end[idx]:
+            m_start, m_end = m_end, m_start
+    elif vote > 0:
         m_start, m_end = m_end, m_start
 
     # Iterating over specified level ---------------------------------

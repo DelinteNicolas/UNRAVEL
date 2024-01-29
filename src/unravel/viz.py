@@ -209,9 +209,10 @@ def plot_alpha_surface_matplotlib(vf: list, method: str = 'raw',
     plt.show()
 
 
-def plot_alpha_surface_pyvista(vf, method: str = 'raw',
-                               weighting_function=None,
-                               show_v: bool = False):
+def plot_alpha_surface_pyvista(vf, method: str = 'raw', weighting_function=None,
+                               show_v: bool = False, v_color: str = 'white',
+                               mesh_size: int = 200,
+                               background_color: str = 'grey'):
     '''
     Computes and plots the mesh for the alpha coefficient surface based on the
     vectors of vf.
@@ -232,6 +233,12 @@ def plot_alpha_surface_pyvista(vf, method: str = 'raw',
         for testing. The default is None.
     show_v : bool, optional
         Show vectors. The default is False.
+    v_color : str, optional
+        Vector color. The default is white.
+    mesh_size : int, optional
+        Resolution of the 3D surface. The default is 200.
+    background_color: str, otpional
+        Color of the background in the 3D render. The default is grey.
 
     Returns
     -------
@@ -240,7 +247,8 @@ def plot_alpha_surface_pyvista(vf, method: str = 'raw',
     '''
 
     x, y, z, coef = compute_alpha_surface(vf, method=method,
-                                          weighting_function=weighting_function)
+                                          weighting_function=weighting_function,
+                                          mesh_size=mesh_size)
 
     pc = pyvista.StructuredGrid(x, y, z)
     pl = pyvista.Plotter()
@@ -259,9 +267,10 @@ def plot_alpha_surface_pyvista(vf, method: str = 'raw',
                                  label=str(v), color='orange')
             else:
                 _ = pl.add_lines(np.array(points),
-                                 label=str(v), color='white')
+                                 label=str(v), color=v_color)
             points = []
         pl.add_legend()
+    pl.background_color = background_color
     pl.show()
 
 
@@ -332,16 +341,15 @@ def compute_alpha_surface(vf, method: str = 'raw',
     return x, y, z, coef
 
 
-def export_alpha_surface(vList: list, output_path: str, method: str = 'raw',
-                         show_v: bool = True):
+def export_alpha_surface(vf, output_path: str, method: str = 'raw',
+                         show_v: bool = True, v_color: str = 'white',
+                         weighting_function=None, mesh_size: int = 200):
     '''
     Computes and exports the mesh for the alpha coefficient surface based on the
     vectors of vList.
 
     Tutorial to powerpoint: save as .gltf, open with 3D viewer, save as .glb,
     open with 3D builder then repair then save as .3mf
-
-    TODO: update to new architecture
 
     Parameters
     ----------
@@ -356,8 +364,15 @@ def export_alpha_surface(vList: list, output_path: str, method: str = 'raw',
             'cfo' : closest-fixel-only
             'vol' : relative volume weighting.
         The default is 'raw'.
+    weighing_function : function, optional
+        Overwrites the weighing function given in method to this method. Used
+        for testing. The default is None.
     show_v : bool, optional
         Show vectors. The default is True.
+    v_color : str, optional
+        Vector color. The default is white.
+    mesh_size : int, optional
+        Resolution of the 3D surface. The default is 200.
 
     Returns
     -------
@@ -365,7 +380,9 @@ def export_alpha_surface(vList: list, output_path: str, method: str = 'raw',
 
     '''
 
-    x, y, z, coef = compute_alpha_surface(vList, method=method)
+    x, y, z, coef = compute_alpha_surface(vf, method=method,
+                                          weighting_function=weighting_function,
+                                          mesh_size=mesh_size)
 
     pc = pyvista.StructuredGrid(x, y, z)
     pl = pyvista.Plotter()
@@ -373,14 +390,18 @@ def export_alpha_surface(vList: list, output_path: str, method: str = 'raw',
                     smooth_shading=True, show_scalar_bar=False)
     if show_v:
         points = []
-        for j, v in enumerate(vList):
+        for j in range(vf.shape[2]):
+            v = vf[:, :, j]
+            v = np.squeeze(v)
             v = v/np.linalg.norm(v)*2.5
-            points.append([i*-1 for i in v])
+            points.append(v*-1)
             points.append(v)
             if j == 0:
-                _ = pl.add_lines(np.array(points), label=str(v), color='orange')
+                _ = pl.add_lines(np.array(points),
+                                 label=str(v), color='orange')
             else:
-                _ = pl.add_lines(np.array(points), label=str(v), color='white')
+                _ = pl.add_lines(np.array(points),
+                                 label=str(v), color=v_color)
             points = []
     pl.export_gltf(output_path)
 

@@ -274,8 +274,8 @@ def plot_alpha_surface_pyvista(vf, method: str = 'raw', weighting_function=None,
     pl.show()
 
 
-def compute_alpha_surface(vf, method: str = 'raw',
-                          weighting_function=None, mesh_size: int = 200):
+def compute_alpha_surface(vf, method: str = 'raw', weighting_function=None,
+                          mesh_size: int = 200):
     '''
     Computes the mesh for the alpha coefficient surface based on the vectors of
     vf.
@@ -325,7 +325,10 @@ def compute_alpha_surface(vf, method: str = 'raw',
         a = relative_angular_weighting(vs, vf, nf)[:, 0]
     elif method == 'cfo':
         a = closest_fixel_only(vs, vf, nf)[:, 0]
+    elif method == 'ang':
+        a = angular_weighting(vs, vf, nf)[:, 0]
     else:
+        print('Warning: method not implemented, angular weighting is used.')
         a = angular_weighting(vs, vf, nf)[:, 0]
 
     x *= (a+1)

@@ -46,8 +46,7 @@ def get_metric_along_trajectory(fixel_weights, metric_maps, roi_sections):
             continue
 
         roi = np.where(roi_sections == i, 1, 0)
-        fixel_weights_roi = fixel_weights * np.repeat(roi[..., np.newaxis],
-                                                      1, axis=-1)
+        fixel_weights_roi = fixel_weights * roi[..., np.newaxis]
 
         mean, std = get_weighted_mean(micro_map, fixel_weights_roi)
         if mean == 0:

@@ -22,7 +22,7 @@ copyright = '2022, Nicolas Delinte'
 author = 'Nicolas Delinte'
 
 # The full version, including alpha/beta/rc tags
-release = '2023'
+release = '2024'
 
 
 # -- General configuration ---------------------------------------------------

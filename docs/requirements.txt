@@ -3,3 +3,4 @@ dipy
 scikit-learn
 scikit-image
 pyvista
+sphinx-rtd-theme

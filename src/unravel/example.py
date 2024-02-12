@@ -4,7 +4,7 @@ Created on Mon Apr  4 15:52:33 2022
 
 @author: Delinte Nicolas
 
-An example pyhton script using the main methods and outputs of UNRAVEL. A
+An example python script using the main methods and outputs of UNRAVEL. A
 tractogram of the middle anterior section of the corpus callosum is used as
 tractography input.
 

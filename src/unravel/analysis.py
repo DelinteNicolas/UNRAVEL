@@ -10,7 +10,8 @@ from itertools import combinations
 from unravel.core import get_microstructure_map, get_weighted_mean
 
 
-def get_metric_along_trajectory(fixel_weights, metric_maps, roi_sections):
+def get_metric_along_trajectory(fixel_weights, metric_maps, roi_sections,
+                                weighting: str = 'tsl'):
     '''
 
 
@@ -22,6 +23,8 @@ def get_metric_along_trajectory(fixel_weights, metric_maps, roi_sections):
         List of K 4D arrays of shape (x,y,z) containing metric estimations.
     roi_sections : 3D array of size (x,y,z)
         Labeled array containing the volumes of the section of the tract.
+    weighting : str, optional
+        Weighting used for the mean. The default is 'tsl'.
 
     Returns
     -------
@@ -48,7 +51,8 @@ def get_metric_along_trajectory(fixel_weights, metric_maps, roi_sections):
         roi = np.where(roi_sections == i, 1, 0)
         fixel_weights_roi = fixel_weights * roi[..., np.newaxis]
 
-        mean, std = get_weighted_mean(micro_map, fixel_weights_roi)
+        mean, std = get_weighted_mean(micro_map, fixel_weights_roi,
+                                      weighting=weighting)
         if mean == 0:
             mean = m_array[i-1]
             std = std_array[i-1]

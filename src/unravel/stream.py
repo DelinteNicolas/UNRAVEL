@@ -457,8 +457,7 @@ def remove_outlier_streamlines(trk_file, point_array, out_file: str = None,
 
     if verbose:
         print(str(len(n_idx))+' streamlines removed from tract')
-    trk_new = StatefulTractogram(streams, trk, Space.VOX,
-                                 origin=Origin.TRACKVIS)
+    trk_new = trk.from_sft(streams, trk)
     save_tractogram(trk_new, out_file)
 
 
@@ -597,6 +596,5 @@ def smooth_streamlines(trk_file: str, out_file: str = None):
     if out_file is None:
         out_file = trk_file
 
-    trk_new = StatefulTractogram(streams, trk, Space.VOX,
-                                 origin=Origin.TRACKVIS)
+    trk_new = trk.from_sft(streams, trk)
     save_tractogram(trk_new, out_file)

@@ -6,7 +6,7 @@ Created on Sat Jun  4 22:17:13 2022
 """
 
 import numpy as np
-from dipy.io.streamline import load_tractogram
+from dipy.io.streamline import load_tractogram, save_tractogram
 
 
 def tract_to_ROI(trk_file: str):
@@ -76,10 +76,14 @@ def peaks_to_RGB(peaks, frac=None, fvf=None, order: str = 'rgb'):
 
     if frac is None:
         frac = np.ones(peaks.shape[:3]+(K,))/K
+    elif len(frac.shape) <= 3:
+        frac = frac[..., np.newaxis]
     frac = np.stack((frac,)*3, axis=3)
 
     if fvf is None:
         fvf = np.ones(peaks.shape[:3]+(K,))
+    elif len(fvf.shape) <= 3:
+        fvf = fvf[..., np.newaxis]
     fvf = np.stack((fvf,)*3, axis=3)
 
     rgb = np.sum(abs(peaks)*frac*fvf, axis=-1)
@@ -207,32 +211,6 @@ def tensor_to_DTI(t):
     np.seterr(divide='warn', invalid='warn')
 
     return FA, AD, RD, MD
-
-
-def xyz_to_spherical(xyz):
-    '''
-    X,y,z coordinates to spherical coordinates.
-
-    Parameters
-    ----------
-    xyz : array of size (n,3)
-        X,y,z coordinates of n points
-
-    Returns
-    -------
-    r : array of size (n)
-        DESCRIPTION.
-    theta : array of size (n)
-        DESCRIPTION.
-    phi : array of size (n)
-        DESCRIPTION.
-
-    '''
-    xy = xyz[:, 0]**2 + xyz[:, 1]**2
-    r = np.sqrt(xy + xyz[:, 2]**2)
-    theta = np.arctan2(np.sqrt(xy), xyz[:, 2])
-    phi = np.arctan2(xyz[:, 1], xyz[:, 0])
-    return r, theta, phi
 
 
 def get_streamline_count(trk) -> int:
@@ -504,20 +482,20 @@ def plot_streamline_trajectory(trk, resolution_increase: int = 1,
 
 def xyz_to_spherical(xyz):
     '''
-
+    X,y,z coordinates to spherical coordinates.
 
     Parameters
     ----------
     xyz : array of size (n,3)
-        DESCRIPTION.
+        X,y,z coordinates of n points
 
     Returns
     -------
-    r : TYPE
+    r : array of size (n)
         DESCRIPTION.
-    theta : TYPE
+    theta : array of size (n)
         DESCRIPTION.
-    phi : TYPE
+    phi : array of size (n)
         DESCRIPTION.
 
     '''
@@ -535,3 +513,39 @@ def spherical_to_xyz(theta, phi):
     z = np.cos(theta)
 
     return x, y, z
+
+
+def fuse_trk(trk_file_1: str, trk_file_2: str, output_file: str):
+    '''
+    Creates a new .trk file with all streamlines contained in the two input .trk
+    files. The input files must be in the same space.
+
+    Parameters
+    ----------
+    trk_file_1 : str
+        Filename of first input .trk file.
+    trk_file_2 : str
+        Filename of second input .trk file.
+    output_file : str
+        Filename of output .trk file.
+
+    Returns
+    -------
+    None.
+
+    '''
+
+    trk = load_tractogram(trk_file_1, 'same')
+    trk.to_vox()
+    trk.to_corner()
+    streams_1 = trk.streamlines
+
+    trk = load_tractogram(trk_file_2, 'same')
+    trk.to_vox()
+    trk.to_corner()
+    streams_2 = trk.streamlines
+
+    streams_1.extend(streams_2)
+
+    trk_new = trk.from_sft(streams_1, trk)
+    save_tractogram(trk_new, output_file)

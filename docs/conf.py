@@ -12,17 +12,17 @@
 #
 import os
 import sys
-sys.path.insert(0, os.path.abspath('../src/'))
 
+sys.path.insert(0, os.path.abspath('../src/'))
 
 # -- Project information -----------------------------------------------------
 
 project = 'UNRAVEL'
-copyright = '2022, Nicolas Delinte'
+copyright = '2024, Nicolas Delinte'
 author = 'Nicolas Delinte'
 
 # The full version, including alpha/beta/rc tags
-release = '2023'
+release = '2024'
 
 
 # -- General configuration ---------------------------------------------------

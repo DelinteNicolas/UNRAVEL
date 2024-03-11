@@ -10,7 +10,8 @@ from itertools import combinations
 from unravel.core import get_microstructure_map, get_weighted_mean
 
 
-def get_metric_along_trajectory(fixel_weights, metric_maps: list, roi_sections):
+def get_metric_along_trajectory(fixel_weights, metric_maps, roi_sections,
+                                weighting: str = 'tsl'):
     '''
 
 
@@ -18,10 +19,12 @@ def get_metric_along_trajectory(fixel_weights, metric_maps: list, roi_sections):
     ----------
     fixel_weights : 4-D array of shape (x,y,z,K)
         Array containing the relative weights of the K fixels in each voxel.
-    metric_maps : list
-        List of K 3-D arrays of shape (x,y,z) containing metric estimations.
+    metric_maps : 4D array of shape (x,y,z,3,k)
+        List of K 4D arrays of shape (x,y,z) containing metric estimations.
     roi_sections : 3D array of size (x,y,z)
         Labeled array containing the volumes of the section of the tract.
+    weighting : str, optional
+        Weighting used for the mean. The default is 'tsl'.
 
     Returns
     -------
@@ -32,24 +35,24 @@ def get_metric_along_trajectory(fixel_weights, metric_maps: list, roi_sections):
 
     '''
 
-    m_array = np.zeros(np.max(roi_sections))
-    std_array = np.zeros(np.max(roi_sections))
+    m_array = np.zeros(np.max(roi_sections)+1)
+    std_array = np.zeros(np.max(roi_sections)+1)
 
-    if len(metric_maps) == 1:
+    if len(metric_maps.shape) <= 3:
         fixel_weights = fixel_weights[..., np.newaxis]
 
     micro_map = get_microstructure_map(fixel_weights, metric_maps)
 
-    for i in range(np.max(roi_sections)):
+    for i in range(np.max(roi_sections)+1):
 
         if i == 0:
             continue
 
         roi = np.where(roi_sections == i, 1, 0)
-        fixel_weights_roi = fixel_weights * np.repeat(roi[..., np.newaxis],
-                                                      1, axis=-1)
+        fixel_weights_roi = fixel_weights * roi[..., np.newaxis]
 
-        mean, std = get_weighted_mean(micro_map, fixel_weights_roi)
+        mean, std = get_weighted_mean(micro_map, fixel_weights_roi,
+                                      weighting=weighting)
         if mean == 0:
             mean = m_array[i-1]
             std = std_array[i-1]

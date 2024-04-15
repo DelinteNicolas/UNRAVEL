@@ -10,11 +10,14 @@ from tqdm import tqdm
 from PIL import Image
 from scipy.ndimage import zoom
 from scipy.interpolate import Akima1DInterpolator
-import pyvista
+import pyvista as pv
 import matplotlib.pyplot as plt
 from matplotlib import cm
+from matplotlib.colors import LinearSegmentedColormap
+from dipy.io.streamline import load_tractogram
 from unravel.core import (angular_weighting,  relative_angular_weighting,
                           closest_fixel_only)
+from unravel.utils import get_streamline_density
 
 
 def grayscale_to_rgb(array):
@@ -250,8 +253,8 @@ def plot_alpha_surface_pyvista(vf, method: str = 'raw', weighting_function=None,
                                           weighting_function=weighting_function,
                                           mesh_size=mesh_size)
 
-    pc = pyvista.StructuredGrid(x, y, z)
-    pl = pyvista.Plotter()
+    pc = pv.StructuredGrid(x, y, z)
+    pl = pv.Plotter()
     _ = pl.add_mesh(pc, cmap='plasma', scalars=coef.T.flatten(),
                     smooth_shading=True, show_scalar_bar=False)
     if show_v:
@@ -387,8 +390,8 @@ def export_alpha_surface(vf, output_path: str, method: str = 'raw',
                                           weighting_function=weighting_function,
                                           mesh_size=mesh_size)
 
-    pc = pyvista.StructuredGrid(x, y, z)
-    pl = pyvista.Plotter()
+    pc = pv.StructuredGrid(x, y, z)
+    pl = pv.Plotter()
     _ = pl.add_mesh(pc, cmap='plasma', scalars=coef.T.flatten(),
                     smooth_shading=True, show_scalar_bar=False)
     if show_v:
@@ -474,7 +477,8 @@ def plot_nodes_and_surfaces(point_array, only_nodes: bool = False):
     plt.show()
 
 
-def plot_roi_sections(roi, voxel: bool = False, background: str = 'grey'):
+def plot_roi_sections(roi, voxel: bool = False, background: str = 'grey',
+                      color_map: str = 'Set3'):
     '''
 
 
@@ -487,6 +491,8 @@ def plot_roi_sections(roi, voxel: bool = False, background: str = 'grey'):
         The default is False.
     background : str, optional
         Color of the background. The default is 'grey'.
+    color_map : str, optional
+        Color map for the labels. The default is 'Set3'.
 
     Returns
     -------
@@ -494,17 +500,133 @@ def plot_roi_sections(roi, voxel: bool = False, background: str = 'grey'):
 
     '''
 
-    datapv = pyvista.wrap(roi)
+    datapv = pv.wrap(roi)
     datapv.cell_data['labels'] = roi[:-1, :-1, :-1].flatten(order='F')
     vol = datapv.threshold(value=1, scalars='labels')
     mesh = vol.extract_surface()
 
     smooth = mesh.smooth_taubin(n_iter=12)
 
+    # Colormap
+    N = np.max(roi)
+    cmaplist = getattr(plt.cm, color_map).colors
+    cmaplistext = cmaplist*np.ceil(N/len(cmaplist)).astype(int)
+    color_map = LinearSegmentedColormap.from_list(
+        'Custom cmap', cmaplistext[:N], N)
+    color_lim = [1, N+1]
+
     if voxel:
-        vol.plot(cmap='Set3', background=background, scalars='labels')
+        vol.plot(cmap=color_map, clim=color_lim, background=background,
+                 scalars='labels')
     else:
-        smooth.plot(cmap='Set3', background=background, scalars='labels')
+        smooth.plot(cmap=color_map, clim=color_lim, background=background,
+                    scalars='labels')
+
+
+def plot_trk(trk_file, scalar=None, opacity: float = 1,
+             show_points: bool = False, color_map=None,
+             resolution_increase: int = 2, background: str = 'black',
+             plotter=None):
+    '''
+    3D render for .trk files.
+
+    Parameters
+    ----------
+    trk_file : str
+        Path to tractography file (.trk)
+    scalar : TYPE, optional
+        DESCRIPTION. The default is None.
+    opacity : float, optional
+        DESCRIPTION. The default is 1.
+    show_points : bool, optional
+        Enable to show points instead of lines. The default is False.
+    color_map : str, optional
+        Color map for the labels The default is None.
+    resolution_increase : int, optional
+        DESCRIPTION. The default is 2.
+    background : str, optional
+        DESCRIPTION. The default is 'black'.
+    plotter : TYPE, optional
+        If not specifed, creates a new figure. The default is None.
+
+    Returns
+    -------
+    None.
+
+    '''
+
+    trk = load_tractogram(trk_file, 'same')
+    trk.to_vox()
+    trk.to_corner()
+    streamlines = trk.streamlines
+
+    coord = np.floor(streamlines._data).astype(int)
+
+    if scalar is None:
+        rgb = get_streamline_density(
+            trk, color=True, resolution_increase=resolution_increase)
+        coord_increase = np.floor(
+            streamlines._data*resolution_increase).astype(int)
+        rgb_points = rgb[coord_increase[:, 0],
+                         coord_increase[:, 1],
+                         coord_increase[:, 2]]
+    else:
+        scalar_points = scalar[coord[:, 0], coord[:, 1], coord[:, 2]]
+
+    l1 = np.ones(len(coord))*2
+    l2 = np.linspace(0, len(coord)-1, len(coord))
+    l3 = np.linspace(1, len(coord), len(coord))
+
+    lines = np.stack((l1, l2, l3), axis=-1).astype(int)
+    lines[streamlines._offsets-1] = 0
+
+    mesh = pv.PolyData(streamlines._data)
+
+    if not show_points:
+        mesh.lines = lines
+        point_size = 0
+        ambient = 0.3
+    else:
+        point_size = 2
+        ambient = 0
+
+    if scalar is None:
+        scalars = rgb_points
+        rgb = True
+    else:
+        scalars = scalar_points
+        rgb = False
+
+    if plotter is None:
+        p = pv.Plotter()
+    else:
+        p = plotter
+    if color_map is not None:
+
+        N = np.max(scalar)
+        cmaplist = getattr(plt.cm, color_map).colors
+        cmaplistext = cmaplist*np.ceil(N/len(cmaplist)).astype(int)
+        color_map = LinearSegmentedColormap.from_list(
+            'Custom cmap', cmaplistext[:N], N)
+
+        color_lim = [1, N+1]
+
+        p.add_mesh(mesh, ambient=ambient, opacity=opacity,
+                   interpolate_before_map=False,
+                   render_lines_as_tubes=True, line_width=2,
+                   point_size=point_size,
+                   cmap=color_map,
+                   clim=color_lim,
+                   scalars=scalars, rgb=rgb)
+    else:
+        p.add_mesh(mesh, ambient=ambient, opacity=opacity,
+                   render_lines_as_tubes=True, line_width=2,
+                   point_size=point_size,
+                   cmap='plasma',
+                   scalars=scalars, rgb=rgb)
+    p.background_color = background
+    if plotter is None:
+        p.show()
 
 
 def plot_metric_along_trajectory(mean, dev, new_fig: bool = True,

@@ -276,7 +276,7 @@ def get_dist_from_median_trajectory(trk_file: str, point_array,
 
 
 def remove_outlier_streamlines(trk_file, point_array, out_file: str = None,
-                               outlier_ratio: float = .5,
+                               outlier_ratio: float = 0,
                                remove_outlier_dir: bool = False,
                                verbose: bool = True, bandwidth: float = 0.2,
                                neighbors_required: int = 5,
@@ -299,7 +299,7 @@ def remove_outlier_streamlines(trk_file, point_array, out_file: str = None,
         Path to output file. The default is None.
     outlier_ratio : int, optional
         Percentage of the streamline allowed to be an outlier [0:1]. Increasing
-        the value removes less streamlines. The default is 0.5 (50%).
+        the value removes less streamlines. The default is 0 (0%).
     remove_outlier_dir : bool, optional
         If True, removes streamlines whose direction are outliers.
         The default is False.

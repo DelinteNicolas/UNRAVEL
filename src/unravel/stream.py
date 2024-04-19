@@ -401,6 +401,7 @@ def remove_outlier_streamlines(trk_file, point_array, out_file: str = None,
         sorted_indexes = np.argsort(-n_sign)
         keep_num_idx = int(len(n_sign)*keep_ratio)
         n_idx = sorted_indexes[:keep_num_idx]
+        n_idx = n_idx[..., np.newaxis]
 
     if remove_outlier_dir:
 

@@ -541,7 +541,8 @@ def plot_trk(trk_file, scalar=None, opacity: float = 1,
     show_points : bool, optional
         Enable to show points instead of lines. The default is False.
     color_map : str, optional
-        Color map for the labels The default is None.
+        Color map for the labels. 'Set3' or 'tab20' recommend for
+        segmented color maps. The default is None.
     resolution_increase : int, optional
         DESCRIPTION. The default is 2.
     background : str, optional

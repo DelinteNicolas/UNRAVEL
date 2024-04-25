@@ -631,21 +631,23 @@ def plot_trk(trk_file, scalar=None, opacity: float = 1,
 
 
 def plot_metric_along_trajectory(mean, dev, new_fig: bool = True,
-                                 label: str = '', color: str ='tab:blue'):
+                                 label: str = '', color: str = None):
     '''
     Plots the output of unravel.analysis.get_metric_along_trajectory.
 
     Parameters
     ----------
     mean : 1D array of size (n)
-        DESCRIPTION.
+        List of means for each subsection.
     dev : 1D array of size (n)
-        DESCRIPTION.
+        List of deviations for each subsection.
     new_fig : bool, optional
         If false, print the plot on the previous 'plt' figure. Useful when
         plotting multiple lines in a single plot. The default is True.
     label : str, optional
         Line label. The default is ''.
+    color : str, optional
+        Line color. The default is None.
 
     Returns
     -------
@@ -661,6 +663,8 @@ def plot_metric_along_trajectory(mean, dev, new_fig: bool = True,
 
     if new_fig:
         plt.figure()
-    plt.plot(xs, ys, label=label, color=color)
-    plt.fill_between(xs, np.array(ys)-np.array(stds), color=color,
-                     np.array(ys) + np.array(stds), alpha=.15)
+    p = plt.plot(xs, ys, label=label, color=color)
+    plt.fill_between(xs, np.array(ys)-np.array(stds),
+                     np.array(ys) + np.array(stds),
+                     color=p[-1].get_color(), alpha=.15)
+    plt.xlim([1, len(mean)-1])

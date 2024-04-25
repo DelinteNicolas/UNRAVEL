@@ -631,7 +631,7 @@ def plot_trk(trk_file, scalar=None, opacity: float = 1,
 
 
 def plot_metric_along_trajectory(mean, dev, new_fig: bool = True,
-                                 label: str = ''):
+                                 label: str = '', color: str ='tab:blue'):
     '''
     Plots the output of unravel.analysis.get_metric_along_trajectory.
 
@@ -661,6 +661,6 @@ def plot_metric_along_trajectory(mean, dev, new_fig: bool = True,
 
     if new_fig:
         plt.figure()
-    plt.plot(xs, ys, label=label)
-    plt.fill_between(xs, np.array(ys)-np.array(stds),
+    plt.plot(xs, ys, label=label, color=color)
+    plt.fill_between(xs, np.array(ys)-np.array(stds), color=color,
                      np.array(ys) + np.array(stds), alpha=.15)

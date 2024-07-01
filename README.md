@@ -36,11 +36,16 @@ pip install unravel-python
 ```
 To upgrade the current version : ```pip install unravel-python --upgrade```.
 
-To install a specific version of the package use
+To install a specific version of the package, use
 ```
 pip install unravel-python==1.0.0
 ```
 All available versions are listed in [PyPI](https://pypi.org/project/unravel-python/). The package names follow the rules of [semantic versioning](https://semver.org/).
+
+To install the package with the optional dependencies, use
+```
+pip install unravel-python[viz]
+```
 
 ### Local install
 

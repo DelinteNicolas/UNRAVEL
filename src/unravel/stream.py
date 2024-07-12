@@ -558,7 +558,8 @@ def get_roi_sections_from_nodes(trk_file: str, point_array,
     return mask.astype(int)
 
 
-def smooth_streamlines(trk_file: str, out_file: str = None):
+def smooth_streamlines(trk_file: str, out_file: str = None,
+                       iterations: int = 1):
     '''
     Slightly smooth streamlines. The step size will no longer be uniform after
     smoothing.
@@ -569,6 +570,9 @@ def smooth_streamlines(trk_file: str, out_file: str = None):
         Path to tractogram file.
     out_file : str, optional
         Path to output file. The default is None.
+    iter : int, optional
+        Number of times to apply to apply the smoothing. Increases smoothness
+        and compution time. The default is 1.
 
     Returns
     -------
@@ -582,17 +586,21 @@ def smooth_streamlines(trk_file: str, out_file: str = None):
 
     streams = trk.streamlines
     point = streams.get_data()
+    smoothed_point = point.copy()
 
-    smoothed_point = (np.roll(point, 1, axis=0) + point +
-                      np.roll(point, -1, axis=0))/3
-
-    streams._data = smoothed_point
-
-    # Setting end points back to original values
     starts = streams._offsets
     ends = starts-1
-    streams._data[starts] = point[starts]
-    streams._data[ends] = point[ends]
+
+    for _ in range(iterations):
+
+        smoothed_point = (np.roll(smoothed_point, 1, axis=0) + smoothed_point +
+                          np.roll(smoothed_point, -1, axis=0))/3
+
+        # Setting end points back to original values
+        smoothed_point[starts] = point[starts]
+        smoothed_point[ends] = point[ends]
+
+    streams._data = smoothed_point
 
     if out_file is None:
         out_file = trk_file

@@ -74,7 +74,7 @@ def voxels_from_segment(position1: tuple, position2: tuple,
 
 def angle_difference(vs, vf, direction: bool = False):
     '''
-    Computes the angle difference between two vectors.
+    Computes the angle difference between n vectors.
 
     Parameters
     ----------
@@ -91,31 +91,33 @@ def angle_difference(vs, vf, direction: bool = False):
     -------
     ang : 2D array of size (n,k)
         Angle difference (in degrees).
-
     '''
 
-    if len(vs.shape) == 2:
+    # Ensure vs is a 3D array for broadcasting
+    if vs.ndim == 2:
         vs = vs[..., np.newaxis]
     if len(vf.shape) == 2:
         vf = vf[..., np.newaxis]
 
-    # Catching warnings due to null vectors
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
+    # Normalize vectors, suppressing warnings for divisions by zero
+    # with warnings.catch_warnings():
+    #     warnings.simplefilter("ignore")
 
-        n = np.linalg.norm(vs, axis=1)
-        vsn = vs/np.stack((n, n, n), axis=1)
-        n = np.linalg.norm(vf, axis=1)
-        vfn = vf/np.stack((n, n, n), axis=1)
+    n = np.linalg.norm(vs, axis=1, keepdims=True)
+    vsn = np.divide(vs, n, where=(n != 0))
+    n = np.linalg.norm(vf, axis=1, keepdims=True)
+    vfn = np.divide(vf, n, where=(n != 0))
 
-        dot = np.sum(vsn * vfn, axis=1)
-        dot[dot > 1] = 1
-        dot[dot < -1] = -1
+    # Compute dot product and clamp values to avoid invalid arccos inputs
+    dot = np.einsum('ijk,ijk->ik', vsn, vfn)
+    dot = np.clip(dot, -1.0, 1.0)
 
-        ang = np.arccos(dot)*180/np.pi
+    # Compute the angle in degrees
+    ang = np.arccos(dot) * 180 / np.pi
 
+    # Adjust angles if direction is not considered
     if not direction:
-        ang = np.where(ang > 90, 180-ang, ang)
+        ang = np.where(ang > 90, 180 - ang, ang)
 
     return ang
 

@@ -276,7 +276,7 @@ def get_dist_from_median_trajectory(trk_file: str, point_array,
 
 
 def remove_outlier_streamlines(trk_file, point_array, out_file: str = None,
-                               outlier_ratio: float = .5,
+                               outlier_ratio: float = 0,
                                remove_outlier_dir: bool = False,
                                verbose: bool = True, bandwidth: float = 0.2,
                                neighbors_required: int = 5,
@@ -299,7 +299,7 @@ def remove_outlier_streamlines(trk_file, point_array, out_file: str = None,
         Path to output file. The default is None.
     outlier_ratio : int, optional
         Percentage of the streamline allowed to be an outlier [0:1]. Increasing
-        the value removes less streamlines. The default is 0.5 (50%).
+        the value removes less streamlines. The default is 0 (0%).
     remove_outlier_dir : bool, optional
         If True, removes streamlines whose direction are outliers.
         The default is False.
@@ -401,6 +401,7 @@ def remove_outlier_streamlines(trk_file, point_array, out_file: str = None,
         sorted_indexes = np.argsort(-n_sign)
         keep_num_idx = int(len(n_sign)*keep_ratio)
         n_idx = sorted_indexes[:keep_num_idx]
+        n_idx = n_idx[..., np.newaxis]
 
     if remove_outlier_dir:
 
@@ -557,7 +558,8 @@ def get_roi_sections_from_nodes(trk_file: str, point_array,
     return mask.astype(int)
 
 
-def smooth_streamlines(trk_file: str, out_file: str = None):
+def smooth_streamlines(trk_file: str, out_file: str = None,
+                       iterations: int = 1):
     '''
     Slightly smooth streamlines. The step size will no longer be uniform after
     smoothing.
@@ -568,6 +570,9 @@ def smooth_streamlines(trk_file: str, out_file: str = None):
         Path to tractogram file.
     out_file : str, optional
         Path to output file. The default is None.
+    iter : int, optional
+        Number of times to apply to apply the smoothing. Increases smoothness
+        and compution time. The default is 1.
 
     Returns
     -------
@@ -581,17 +586,21 @@ def smooth_streamlines(trk_file: str, out_file: str = None):
 
     streams = trk.streamlines
     point = streams.get_data()
+    smoothed_point = point.copy()
 
-    smoothed_point = (np.roll(point, 1, axis=0) + point +
-                      np.roll(point, -1, axis=0))/3
-
-    streams._data = smoothed_point
-
-    # Setting end points back to original values
     starts = streams._offsets
     ends = starts-1
-    streams._data[starts] = point[starts]
-    streams._data[ends] = point[ends]
+
+    for _ in range(iterations):
+
+        smoothed_point = (np.roll(smoothed_point, 1, axis=0) + smoothed_point +
+                          np.roll(smoothed_point, -1, axis=0))/3
+
+        # Setting end points back to original values
+        smoothed_point[starts] = point[starts]
+        smoothed_point[ends] = point[ends]
+
+    streams._data = smoothed_point
 
     if out_file is None:
         out_file = trk_file

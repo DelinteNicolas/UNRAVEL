@@ -506,11 +506,11 @@ def xyz_to_spherical(xyz):
     return r, theta, phi
 
 
-def spherical_to_xyz(theta, phi):
+def spherical_to_xyz(theta, phi, r=1):
 
-    x = np.sin(theta)*np.cos(phi)
-    y = np.sin(theta)*np.sin(phi)
-    z = np.cos(theta)
+    x = r*np.sin(theta)*np.cos(phi)
+    y = r*np.sin(theta)*np.sin(phi)
+    z = r*np.cos(theta)
 
     return x, y, z
 
@@ -518,14 +518,15 @@ def spherical_to_xyz(theta, phi):
 def fuse_trk(trk_file_1: str, trk_file_2: str, output_file: str):
     '''
     Creates a new .trk file with all streamlines contained in the two input .trk
-    files. The input files must be in the same space.
+    files. The second argument can be a list of linames. The input files must be
+    in the same space.
 
     Parameters
     ----------
     trk_file_1 : str
         Filename of first input .trk file.
-    trk_file_2 : str
-        Filename of second input .trk file.
+    trk_file_2 : str or list
+        Filename of second input .trk file. Or list of filenames.
     output_file : str
         Filename of output .trk file.
 
@@ -540,12 +541,18 @@ def fuse_trk(trk_file_1: str, trk_file_2: str, output_file: str):
     trk.to_corner()
     streams_1 = trk.streamlines
 
-    trk = load_tractogram(trk_file_2, 'same')
-    trk.to_vox()
-    trk.to_corner()
-    streams_2 = trk.streamlines
+    if not isinstance(trk_file_2, list):
 
-    streams_1.extend(streams_2)
+        trk_file_2 = [trk_file_2]
+
+    for trk_file in trk_file_2:
+
+        trk = load_tractogram(trk_file, 'same')
+        trk.to_vox()
+        trk.to_corner()
+        streams_2 = trk.streamlines
+
+        streams_1.extend(streams_2)
 
     trk_new = trk.from_sft(streams_1, trk)
     save_tractogram(trk_new, output_file)

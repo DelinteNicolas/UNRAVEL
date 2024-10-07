@@ -7,17 +7,17 @@ Created on Wed Aug 16 11:25:30 2023
 
 
 import numpy as np
+from tqdm import tqdm
 from sklearn.cluster import KMeans
-from dipy.io.stateful_tractogram import Space, StatefulTractogram, Origin
 from dipy.io.streamline import load_tractogram, save_tractogram
-from unravel.utils import tract_to_ROI, xyz_to_spherical
-from skimage.morphology import flood
+from unravel.utils import tract_to_ROI, xyz_to_spherical, get_streamline_density
 from sklearn.neighbors import KernelDensity
 
 
-def extract_nodes(trk_file: str, level: int = 3, smooth: bool = True):
+def extract_nodes_legacy(trk_file: str, level: int = 3, smooth: bool = True):
     '''
     The start is assumed to be the lowest position along the last axis.
+    OUTDATED: use extract_nodes() instead
 
     Parameters
     ----------
@@ -141,6 +141,127 @@ def extract_nodes(trk_file: str, level: int = 3, smooth: bool = True):
                                                          compute_dist=False)
 
     return point_array
+
+
+def extract_nodes(trk_file: str, nodes: int = 32, smooth_iter: int = 10):
+    '''
+    Return the streamline with the most density, subsampled into a defined
+    number of nodes.
+
+    Parameters
+    ----------
+    trk_file : str
+        Path to tractogram file
+    nodes : int, optional
+        Number of points in the average pathway. The default is 32.
+    smooth_iter : int, optional
+        Number of iterations for smoothing the average pathway. Not recommended
+        when there are few nodes. The default is 10.
+
+    Returns
+    -------
+    centroid : 2D array of size (n, 3)
+        Coordinates (x,y,z) of the n mean trajectory points.
+
+    '''
+
+    trk = load_tractogram(trk_file, 'same')
+    trk.to_vox()
+    trk.to_corner()
+
+    dens = get_streamline_density(trk, subsegment=5)
+
+    streams = trk.streamlines
+    s_dens = np.empty(len(streams))
+
+    for i in tqdm(range(len(streams)), desc="Computing centroid streamline"):
+
+        s_dens[i] = np.sum(dens[np.floor(streams[i]).astype(np.int32)],
+                           dtype=np.float32)
+
+    s_i_max = np.argmax(s_dens)
+
+    deltas = np.diff(streams[s_i_max], axis=0)
+    distances = np.linalg.norm(deltas, axis=1)
+    cumulative_dist = np.concatenate(([0], np.cumsum(distances)),
+                                     dtype=np.float32)
+    new_distances = np.linspace(0, cumulative_dist[-1], nodes, dtype=np.float32)
+    indices = np.searchsorted(cumulative_dist, new_distances)
+    centroid = streams[s_i_max][indices]
+
+    centroid = align_streamline(centroid)
+    if smooth_iter > 0:
+        centroid = _smooth_streamline(centroid, iterations=smooth_iter)
+
+    return centroid
+
+
+def align_streamline(stream):
+    '''
+    Sets the start and end point of a streamline with arbitrary rules.
+
+    Parameters
+    ----------
+    stream : 2D array of shape (l, 3)
+        Coordinates of the l streamline points.
+
+    Returns
+    -------
+    stream : 2D array of shape (l, 3)
+        Coordinates of the l streamline points.
+
+    '''
+
+    m_start = stream[0]
+    m_end = stream[-1]
+    # Re-orders start and end based on main axial direction,
+    # first main direction or three-way vote
+    # !!! does not always work
+    diff_abs = np.abs(m_start-m_end)
+    main_dir = np.argmax(diff_abs)
+    small_dir = np.argmin(diff_abs)
+    vote = np.sum(np.where(m_start-m_end > 0, 1, -1))
+    if diff_abs[main_dir] > (np.sum(diff_abs)-diff_abs[main_dir]):
+        if m_start[main_dir] > m_end[main_dir]:
+            stream = stream[::-1]
+    elif diff_abs[small_dir] < (np.sum(diff_abs)-diff_abs[small_dir])/4:
+        idx = 1 if small_dir == 0 else 0
+        if m_start[idx] > m_end[idx]:
+            stream = stream[::-1]
+    elif vote > 0:
+        stream = stream[::-1]
+
+    return stream
+
+
+def _smooth_streamline(stream, iterations=10):
+    '''
+
+
+    Parameters
+    ----------
+    stream : 2D array of shape (l, 3)
+        Coordinates of the l streamline points.
+
+    Returns
+    -------
+    smoothed_point : 2D array of shape (l, 3)
+        Coordinates of the l streamline points.
+
+    '''
+
+    smoothed_point = stream.copy()
+
+    for _ in range(iterations):
+
+        smoothed_point = (np.roll(smoothed_point, 1, axis=0) + smoothed_point +
+                          np.roll(smoothed_point, -1, axis=0))/3
+
+        # Setting end points back to original values
+        smoothed_point[0] = stream[0]
+        smoothed_point[-1] = stream[-1]
+
+    return smoothed_point
 
 
 def get_streamline_number_from_index(streams, index: int) -> int:
@@ -462,8 +583,7 @@ def remove_outlier_streamlines(trk_file, point_array, out_file: str = None,
     save_tractogram(trk_new, out_file)
 
 
-def get_roi_sections_from_nodes(trk_file: str, point_array,
-                                simplify_shape: bool = True):
+def get_roi_sections_from_nodes(trk_file: str, point_array):
     '''
     Create a mask containing the subdivisions of a tract along its mean
     trajectory.
@@ -474,9 +594,6 @@ def get_roi_sections_from_nodes(trk_file: str, point_array,
         Path to tractogram file.
     point_array : 2D array of size (n, 3)
         Coordinates (x,y,z) of the n mean trajectory points.
-    simplify_shape : bool, optional
-        Removes spurious treamlines and increases robustness but increases
-        computation time. Not necessary on straight fiber bundles. Default=True.
 
     Returns
     -------
@@ -488,72 +605,17 @@ def get_roi_sections_from_nodes(trk_file: str, point_array,
     trk_roi = tract_to_ROI(trk_file)
     mask = np.zeros(trk_roi.shape)
 
-    # Center of mass
-    center = tuple([np.average(indices) for indices in np.where(trk_roi == 1)])
+    non_zero_voxels = np.nonzero(trk_roi)
+    coordinates = np.stack(non_zero_voxels, axis=-1)
+    coord_xyz = coordinates+0.5
 
-    # Meshgrid of coordinates
-    x_val = np.linspace(0.5, trk_roi.shape[0]-0.5, trk_roi.shape[0])
-    y_val = np.linspace(0.5, trk_roi.shape[1]-0.5, trk_roi.shape[1])
-    z_val = np.linspace(0.5, trk_roi.shape[2]-0.5, trk_roi.shape[2])
-    xyz = np.stack(np.meshgrid(x_val, y_val, z_val, indexing='ij'), axis=3)
-    xyz_flat = xyz.reshape(xyz.shape[0]*xyz.shape[1]*xyz.shape[2], 3)
+    distances = np.linalg.norm(coord_xyz[:, np.newaxis, :]
+                               - point_array[np.newaxis, :, :], axis=2)
 
-    for i, _ in enumerate(point_array):
+    # Find the index of the closest node for non-zero voxel
+    closest_point_indices = np.argmin(distances, axis=1)+1
 
-        if i == 0:
-            continue
-
-        try:
-            m_previous = point_array[i-2]
-        except IndexError:
-            m_previous = point_array[i-1]
-        m_start = point_array[i-1]
-        m_end = point_array[i]
-        try:
-            m_next = point_array[i+1]
-        except IndexError:
-            m_next = point_array[i]
-        midpoint = (m_start+m_end)/2
-
-        # Computing normals
-        n_start = m_previous-m_end
-        n_end = m_start-m_next
-        n_mp_start = m_start-midpoint
-        n_mp_end = midpoint-m_end
-        n_xyz_start = m_start-xyz_flat
-        n_xyz_end = xyz_flat-m_end
-
-        # Find indexes that are between current plane and previous plane
-        sign_xyz_start = np.where(
-            np.sum(n_start*n_xyz_start, axis=1) > 0, 1, -1)
-        sign_xyz_end = np.where(np.sum(n_end*n_xyz_end, axis=1) > 0, 1, -1)
-
-        # Must be same side as midpoint
-        sign_mp_start = np.where(np.sum(n_start*n_mp_start) > 0, 1, -1)
-        sign_mp_end = np.where(np.sum(n_end*n_mp_end) > 0, 1, -1)
-
-        sign_mp_slice = (np.where(sign_xyz_start == sign_mp_start, 1, 0)
-                         + np.where(sign_xyz_end == sign_mp_end, 1, 0))
-        sign_mp_slice = np.where(sign_mp_slice == 2, 1, 0)
-
-        # Must be same side as midpoint to center of mass
-        n_mp_com = midpoint-center
-        n_xyz_com = xyz_flat-center
-        sign_mp_com = np.where(np.sum(n_mp_com*n_xyz_com, axis=1) > 0, 1, 0)
-
-        roi_mp_slice = sign_mp_slice.reshape(trk_roi.shape)*trk_roi
-        roi_mp_com = sign_mp_com.reshape(trk_roi.shape)*trk_roi
-        roi = roi_mp_slice + roi_mp_com
-
-        # Adding only regions selected by filters but connected to midpoint
-        if simplify_shape:
-            dot = tuple(np.floor(midpoint).astype(int))
-            if roi[dot] == 2:
-                roi_connec = flood(roi*roi_mp_slice, dot, tolerance=1,
-                                   connectivity=1)
-                roi = np.where(roi_connec == 1, 2, 0)
-
-        mask[roi == 2] = i
+    np.add.at(mask, tuple(coordinates.T), closest_point_indices)
 
     return mask.astype(int)
 

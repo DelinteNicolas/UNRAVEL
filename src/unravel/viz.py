@@ -513,7 +513,7 @@ def plot_roi_sections(roi, voxel: bool = False, background: str = 'grey',
     cmaplistext = cmaplist*np.ceil(N/len(cmaplist)).astype(int)
     color_map = LinearSegmentedColormap.from_list(
         'Custom cmap', cmaplistext[:N], N)
-    color_lim = [1, N+1]
+    color_lim = [1, N]
 
     if voxel:
         vol.plot(cmap=color_map, clim=color_lim, background=background,
@@ -610,7 +610,7 @@ def plot_trk(trk_file, scalar=None, opacity: float = 1,
         color_map = LinearSegmentedColormap.from_list(
             'Custom cmap', cmaplistext[:N], N)
 
-        color_lim = [1, N+1]
+        color_lim = [1, N]
 
         p.add_mesh(mesh, ambient=ambient, opacity=opacity,
                    interpolate_before_map=False,

@@ -18,8 +18,7 @@ from dipy.io.streamline import load_tractogram
 from unravel.core import (get_fixel_weight, get_microstructure_map,
                           get_weighted_mean, main_fixel_map,
                           plot_streamline_metrics, total_segment_length)
-from unravel.utils import (peaks_to_RGB, tract_to_ROI, peaks_to_peak,
-                           plot_streamline_trajectory)
+from unravel.utils import plot_streamline_trajectory, get_streamline_density
 
 
 if __name__ == '__main__':
@@ -55,11 +54,7 @@ if __name__ == '__main__':
                       nib.load(data_dir+sub+'_mf_fvf_f1.nii.gz').get_fdata()),
                      axis=3)
 
-    mask = tract_to_ROI(trk_file)
-    mask = np.repeat(mask[:, :, :, np.newaxis], 3, axis=3)
-
-    p = peaks_to_peak(peaks, fixel_weights)
-    rgb = peaks_to_RGB(peaks=p)*mask
+    rgb = get_streamline_density(trk, color=True)
 
     # Total segment length ----------------------------------------------------
 

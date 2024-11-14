@@ -186,15 +186,16 @@ def closest_fixel_only(vs, vf, nf=None):
     K = vf.shape[2]
 
     if nf is None:
-        nf = np.zeros((vs.shape[0],)+(K,))
+        nf = np.zeros((vs.shape[0],)+(K,), dtype=np.float32)
 
     angle_diff = angle_difference(vs, vf)
     ang_coef = (angle_diff == np.nanmin(angle_diff, axis=1)
-                [:, None]).astype(np.int32)
+                [:, None]).astype(np.float32)
 
-    ang_coef *= (1-nf.astype(np.int32))
-    s = np.sum(ang_coef, axis=1)
-    ang_coef = ang_coef/np.stack((s,)*K, axis=1)
+    ang_coef *= (1-nf)
+    s = np.sum(ang_coef, axis=1, dtype=np.float32)
+    s = np.stack((s,)*K, axis=1)
+    np.divide(ang_coef, s, out=ang_coef, where=s != 0)
 
     return ang_coef
 
@@ -226,7 +227,7 @@ def angular_weighting(vs, vf, nf=None):
     K = vf.shape[2]
 
     if nf is None:
-        nf = np.zeros((vs.shape[0],)+(K,))
+        nf = np.zeros((vs.shape[0],)+(K,), dtype=np.float32)
 
     angle_diff = angle_difference(vs, vf)
     # Angle product if not NaN
@@ -276,7 +277,7 @@ def relative_angular_weighting(vs, vf, nf=None):
     K = vf.shape[2]
 
     if nf is None:
-        nf = np.zeros((vs.shape[0],)+(K,))
+        nf = np.zeros((vs.shape[0],)+(K,), dtype=np.float32)
 
     angle_diff = angle_difference(vs, vf)
     # Angle product if not NaN
@@ -379,7 +380,11 @@ def get_fixel_weight(trk, peaks, method: str = 'ang', ff=None,
     del point, vs, nf, vf, dist
 
     # Removing streamline end points
-    coef[(streams._offsets+streams._lengths-1)*subsegment+subsegment-1] = [0]*K
+    ends = (streams._offsets+streams._lengths-1)*subsegment
+    idx = np.linspace(0, subsegment-1, subsegment, dtype=np.int32)
+    ends = ends[:, np.newaxis] + idx
+    ends = ends.flatten()
+    coef[ends] = [0]*K
 
     np.add.at(fixel_weight, (x, y, z), coef)
 

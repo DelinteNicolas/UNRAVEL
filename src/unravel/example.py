@@ -18,8 +18,7 @@ from dipy.io.streamline import load_tractogram
 from unravel.core import (get_fixel_weight, get_microstructure_map,
                           get_weighted_mean, main_fixel_map,
                           plot_streamline_metrics, total_segment_length)
-from unravel.utils import (peaks_to_RGB, tract_to_ROI, peaks_to_peak,
-                           plot_streamline_trajectory, get_streamline_density)
+from unravel.utils import plot_streamline_trajectory, get_streamline_density
 
 
 if __name__ == '__main__':

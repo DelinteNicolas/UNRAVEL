@@ -379,11 +379,7 @@ def get_fixel_weight(trk, peaks, method: str = 'ang', ff=None,
     del point, vs, nf, vf, dist
 
     # Removing streamline end points
-    ends = (streams._offsets+streams._lengths-1)*subsegment
-    idx = np.linspace(0, subsegment-1, subsegment, dtype=np.int32)
-    ends = ends[:, np.newaxis] + idx
-    ends = ends.flatten()
-    coef[ends] = [0]*K
+    coef[(streams._offsets+streams._lengths-1)*subsegment+subsegment-1] = [0]*K
 
     np.add.at(fixel_weight, (x, y, z), coef)
 

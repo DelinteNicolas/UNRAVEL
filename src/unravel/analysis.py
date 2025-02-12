@@ -19,7 +19,7 @@ def get_metric_along_trajectory(fixel_weights, metric_maps, roi_sections,
     ----------
     fixel_weights : 4-D array of shape (x,y,z,K)
         Array containing the relative weights of the K fixels in each voxel.
-    metric_maps : 4D array of shape (x,y,z,3,k)
+    metric_maps : 4D array of shape (x,y,z,k)
         List of K 4D arrays of shape (x,y,z) containing metric estimations.
     roi_sections : 3D array of size (x,y,z)
         Labeled array containing the volumes of the section of the tract.

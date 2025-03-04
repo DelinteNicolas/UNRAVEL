@@ -565,17 +565,6 @@ def plot_trk(trk_file, scalar=None, opacity: float = 1,
 
     coord = np.floor(streamlines._data).astype(int)
 
-    if scalar is None:
-        rgb = get_streamline_density(
-            trk, color=True, resolution_increase=resolution_increase)
-        coord_increase = np.floor(
-            streamlines._data*resolution_increase).astype(int)
-        rgb_points = rgb[coord_increase[:, 0],
-                         coord_increase[:, 1],
-                         coord_increase[:, 2]]
-    else:
-        scalar_points = scalar[coord[:, 0], coord[:, 1], coord[:, 2]]
-
     l1 = np.ones(len(coord))*2
     l2 = np.linspace(0, len(coord)-1, len(coord))
     l3 = np.linspace(1, len(coord), len(coord))
@@ -593,11 +582,22 @@ def plot_trk(trk_file, scalar=None, opacity: float = 1,
         point_size = 2
         ambient = 0
 
-    if scalar is None:
+    if color_map == 'flesh':
+        rgb = False
+    elif scalar is None:
+
+        rgb = get_streamline_density(
+            trk, color=True, resolution_increase=resolution_increase)
+        coord_increase = np.floor(
+            streamlines._data*resolution_increase).astype(int)
+        rgb_points = rgb[coord_increase[:, 0],
+                         coord_increase[:, 1],
+                         coord_increase[:, 2]]
+
         scalars = rgb_points
         rgb = True
     else:
-        scalars = scalar_points
+        scalars = scalar[coord[:, 0], coord[:, 1], coord[:, 2]]
         rgb = False
 
     if plotter is None:
@@ -605,7 +605,7 @@ def plot_trk(trk_file, scalar=None, opacity: float = 1,
     else:
         p = plotter
 
-    if 'tab' in color_map or 'set' in color_map:
+    if 'tab' in color_map or 'Set' in color_map:
 
         N = np.max(scalar)
         cmaplist = getattr(plt.cm, color_map).colors
@@ -616,34 +616,25 @@ def plot_trk(trk_file, scalar=None, opacity: float = 1,
         color_lim = [1, N]
 
         p.add_mesh(mesh, ambient=ambient, opacity=opacity,
-                   interpolate_before_map=False,
-                   render_lines_as_tubes=True, line_width=2,
-                   point_size=point_size,
+                   interpolate_before_map=False, render_lines_as_tubes=True,
+                   line_width=2, point_size=point_size, rgb=rgb,
                    cmap=color_map,
                    clim=color_lim,
-                   scalars=scalars, rgb=rgb)
+                   scalars=scalars)
 
     elif color_map == 'flesh':
 
-        p.add_mesh(mesh,
-                   ambient=ambient, opacity=opacity,
-                   interpolate_before_map=False,
-                   render_lines_as_tubes=True,
-                   line_width=2,
-                   point_size=point_size,
-                   color=[246, 219, 206],
-                   rgb=rgb)
+        p.add_mesh(mesh, ambient=ambient, opacity=opacity,
+                   interpolate_before_map=False, render_lines_as_tubes=True,
+                   line_width=2, point_size=point_size, rgb=rgb,
+                   color=[246, 219, 206])
 
     else:
-        p.add_mesh(mesh,
-                   ambient=ambient, opacity=opacity,
-                   interpolate_before_map=False,
-                   render_lines_as_tubes=True,
-                   line_width=2,
-                   point_size=point_size,
+        p.add_mesh(mesh, ambient=ambient, opacity=opacity,
+                   interpolate_before_map=False, render_lines_as_tubes=True,
+                   line_width=2, point_size=point_size, rgb=rgb,
                    cmap=color_map,
-                   scalars=scalars,
-                   rgb=rgb)
+                   scalars=scalars)
 
     p.background_color = background
     if plotter is None:

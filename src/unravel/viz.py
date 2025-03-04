@@ -524,7 +524,7 @@ def plot_roi_sections(roi, voxel: bool = False, background: str = 'grey',
 
 
 def plot_trk(trk_file, scalar=None, opacity: float = 1,
-             show_points: bool = False, color_map=None,
+             show_points: bool = False, color_map='plasma',
              resolution_increase: int = 2, background: str = 'black',
              plotter=None):
     '''
@@ -534,19 +534,21 @@ def plot_trk(trk_file, scalar=None, opacity: float = 1,
     ----------
     trk_file : str
         Path to tractography file (.trk)
-    scalar : TYPE, optional
-        DESCRIPTION. The default is None.
+    scalar : 3D array of size (x,y,z), optional
+        Volume with values to be projected onto the streamlines.
+        The default is None.
     opacity : float, optional
         DESCRIPTION. The default is 1.
     show_points : bool, optional
         Enable to show points instead of lines. The default is False.
     color_map : str, optional
-        Color map for the labels. 'Set3' or 'tab20' recommend for
-        segmented color maps. The default is None.
+        Color map for the labels or scalar. 'Set3' or 'tab20' recommend for
+        segmented color maps. If set to 'flesh', the streamlines are colored
+        uniformely with a flesh color. The default is 'plasma'.
     resolution_increase : int, optional
         DESCRIPTION. The default is 2.
     background : str, optional
-        DESCRIPTION. The default is 'black'.
+        Color of the background. The default is 'black'.
     plotter : TYPE, optional
         If not specifed, creates a new figure. The default is None.
 
@@ -602,7 +604,8 @@ def plot_trk(trk_file, scalar=None, opacity: float = 1,
         p = pv.Plotter()
     else:
         p = plotter
-    if color_map is not None:
+
+    if 'tab' in color_map or 'set' in color_map:
 
         N = np.max(scalar)
         cmaplist = getattr(plt.cm, color_map).colors
@@ -619,12 +622,29 @@ def plot_trk(trk_file, scalar=None, opacity: float = 1,
                    cmap=color_map,
                    clim=color_lim,
                    scalars=scalars, rgb=rgb)
-    else:
-        p.add_mesh(mesh, ambient=ambient, opacity=opacity,
-                   render_lines_as_tubes=True, line_width=2,
+
+    elif color_map == 'flesh':
+
+        p.add_mesh(mesh,
+                   ambient=ambient, opacity=opacity,
+                   interpolate_before_map=False,
+                   render_lines_as_tubes=True,
+                   line_width=2,
                    point_size=point_size,
-                   cmap='plasma',
-                   scalars=scalars, rgb=rgb)
+                   color=[246, 219, 206],
+                   rgb=rgb)
+
+    else:
+        p.add_mesh(mesh,
+                   ambient=ambient, opacity=opacity,
+                   interpolate_before_map=False,
+                   render_lines_as_tubes=True,
+                   line_width=2,
+                   point_size=point_size,
+                   cmap=color_map,
+                   scalars=scalars,
+                   rgb=rgb)
+
     p.background_color = background
     if plotter is None:
         p.show()

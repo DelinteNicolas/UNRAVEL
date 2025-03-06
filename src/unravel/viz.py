@@ -523,10 +523,8 @@ def plot_roi_sections(roi, voxel: bool = False, background: str = 'grey',
                     scalars='labels')
 
 
-def plot_trk(trk_file, scalar=None, opacity: float = 1,
-             show_points: bool = False, color_map='plasma',
-             resolution_increase: int = 2, background: str = 'black',
-             plotter=None):
+def plot_trk(trk_file, scalar=None, color_map='plasma', opacity: float = 1,
+             show_points: bool = False, background: str = 'black', plotter=None):
     '''
     3D render for .trk files.
 
@@ -545,11 +543,9 @@ def plot_trk(trk_file, scalar=None, opacity: float = 1,
         Color map for the labels or scalar. 'Set3' or 'tab20' recommend for
         segmented color maps. If set to 'flesh', the streamlines are colored
         uniformely with a flesh color. The default is 'plasma'.
-    resolution_increase : int, optional
-        DESCRIPTION. The default is 2.
     background : str, optional
         Color of the background. The default is 'black'.
-    plotter : TYPE, optional
+    plotter : pyvista.plotter, optional
         If not specifed, creates a new figure. The default is None.
 
     Returns
@@ -577,7 +573,8 @@ def plot_trk(trk_file, scalar=None, opacity: float = 1,
     if not show_points:
         mesh.lines = lines
         point_size = 0
-        ambient = 0.3
+        ambient = 0.6
+        diffuse = 0.5
     else:
         point_size = 2
         ambient = 0
@@ -585,16 +582,15 @@ def plot_trk(trk_file, scalar=None, opacity: float = 1,
     if color_map == 'flesh':
         rgb = False
     elif scalar is None:
-
-        rgb = get_streamline_density(
-            trk, color=True, resolution_increase=resolution_increase)
-        coord_increase = np.floor(
-            streamlines._data*resolution_increase).astype(int)
-        rgb_points = rgb[coord_increase[:, 0],
-                         coord_increase[:, 1],
-                         coord_increase[:, 2]]
-
-        scalars = rgb_points
+        point = streamlines._data
+        next_point = np.roll(point, -1, axis=0)
+        vs = next_point-point
+        norm = np.linalg.norm(vs, axis=1)
+        norm = np.stack((norm,)*3, axis=1, dtype=np.float32)
+        norm = np.divide(vs, norm, dtype=np.float64)
+        ends = (streamlines._offsets+streamlines._lengths-1)
+        norm[ends, :] = norm[ends-1, :]
+        scalars = np.abs(norm)
         rgb = True
     else:
         scalars = scalar[coord[:, 0], coord[:, 1], coord[:, 2]]
@@ -610,31 +606,25 @@ def plot_trk(trk_file, scalar=None, opacity: float = 1,
         N = np.max(scalar)
         cmaplist = getattr(plt.cm, color_map).colors
         cmaplistext = cmaplist*np.ceil(N/len(cmaplist)).astype(int)
-        color_map = LinearSegmentedColormap.from_list(
-            'Custom cmap', cmaplistext[:N], N)
-
+        color_map = LinearSegmentedColormap.from_list('Custom cmap',
+                                                      cmaplistext[:N], N)
         color_lim = [1, N]
 
-        p.add_mesh(mesh, ambient=ambient, opacity=opacity,
+        p.add_mesh(mesh, ambient=ambient, opacity=opacity, diffuse=diffuse,
                    interpolate_before_map=False, render_lines_as_tubes=True,
                    line_width=2, point_size=point_size, rgb=rgb,
-                   cmap=color_map,
-                   clim=color_lim,
-                   scalars=scalars)
+                   cmap=color_map, clim=color_lim, scalars=scalars)
 
     elif color_map == 'flesh':
-
-        p.add_mesh(mesh, ambient=ambient, opacity=opacity,
+        p.add_mesh(mesh, opacity=opacity, diffuse=0.4, ambient=ambient,
                    interpolate_before_map=False, render_lines_as_tubes=True,
                    line_width=2, point_size=point_size, rgb=rgb,
-                   color=[246, 219, 206])
-
+                   color=[250, 225, 210])
     else:
-        p.add_mesh(mesh, ambient=ambient, opacity=opacity,
+        p.add_mesh(mesh, opacity=opacity, diffuse=diffuse, ambient=ambient,
                    interpolate_before_map=False, render_lines_as_tubes=True,
                    line_width=2, point_size=point_size, rgb=rgb,
-                   cmap=color_map,
-                   scalars=scalars)
+                   cmap=color_map, scalars=scalars)
 
     p.background_color = background
     if plotter is None:

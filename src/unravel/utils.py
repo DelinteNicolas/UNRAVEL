@@ -349,7 +349,7 @@ def get_streamline_density(trk, resolution_increase: int = 1,
         vs = next_point-point
         del point, next_point
 
-        vs[ends, :] = [0, 0, 0]
+        vs[ends, :] = vs[ends-1, :]
         del ends
 
         rgb = np.zeros(tuple(trk._dimensions*resolution_increase)+(3,),

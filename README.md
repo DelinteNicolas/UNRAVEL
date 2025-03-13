@@ -75,6 +75,10 @@ The version of the UNRAVEL package installed can be displayed by typing the foll
 ```
 unravel.__version__
 ``` 
+or
+```
+pip show unravel-python
+```
 
 ### Uninstalling
 ```

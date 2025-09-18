@@ -87,7 +87,7 @@ pip uninstall unravel-python
 
 ## Example data and code
 
-An example use of the main methods and outputs of UNRAVEL is written in the `example.py` file. A tractogram of the middle anterior section of the corpus callosum is used as tractography input.
+An example use of the main methods and outputs of UNRAVEL is written in the `example.py` file. A tractogram of the middle anterior section of the corpus callosum is used as an example tractography input.
 
 <p align="center">
   <img src="https://user-images.githubusercontent.com/70629561/169159877-ffbb9b99-ab99-451a-b6a1-24c0b1b5d124.gif" />

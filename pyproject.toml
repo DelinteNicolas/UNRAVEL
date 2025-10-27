@@ -10,7 +10,7 @@ authors = [
 readme="README.md"
 description = "Implementation of UNRAVEL"
 keywords = ["tractography", "multi-fixel"]
-license = "	GPL-3.0-only"
+license = "GPL-3.0-only"
 classifiers = ['Intended Audience :: Science/Research',
                 'Natural Language :: English',
                 'Programming Language :: Python',

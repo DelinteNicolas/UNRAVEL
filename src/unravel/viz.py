@@ -632,7 +632,8 @@ def plot_trk(trk_file, scalar=None, color_map='plasma', opacity: float = 1,
 
 
 def plot_metric_along_trajectory(mean, dev, new_fig: bool = True,
-                                 label: str = '', color: str = None):
+                                 label: str = '', color: str = None,
+                                 show_default_label=False):
     '''
     Plots the output of unravel.analysis.get_metric_along_trajectory.
 
@@ -656,16 +657,20 @@ def plot_metric_along_trajectory(mean, dev, new_fig: bool = True,
 
     '''
 
-    spline = Akima1DInterpolator(range(len(mean)), mean)
-    std_spline = Akima1DInterpolator(range(len(mean)), dev)
-    xs = np.arange(1, len(mean)-1, 0.1)
+    spline = Akima1DInterpolator(range(len(mean)), mean, method='makima',
+                                 extrapolate=True)
+    std_spline = Akima1DInterpolator(range(len(mean)), dev, method='makima',
+                                     extrapolate=True)
+    xs = np.arange(1, len(mean)-1+.1, 0.1)
     ys = spline(xs)
     stds = std_spline(xs)
 
     if new_fig:
         plt.figure()
-    p = plt.plot(xs, ys, label=label, color=color)
+    p_mean = plt.plot(xs, ys, label=label, color=color)
     plt.fill_between(xs, np.array(ys)-np.array(stds),
                      np.array(ys) + np.array(stds),
-                     color=p[-1].get_color(), alpha=.15)
+                     color=p_mean[-1].get_color(), alpha=.15)
     plt.xlim([1, len(mean)-1])
+    if show_default_label:
+        plt.legend(['Weighted mean', 'Weighted deviation'])

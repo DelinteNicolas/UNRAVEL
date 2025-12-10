@@ -6,6 +6,7 @@ Created on Fri Aug 18 18:23:26 2023
 """
 
 import numpy as np
+from tqdm import tqdm
 from itertools import combinations
 from unravel.core import get_microstructure_map, get_weighted_mean
 
@@ -61,7 +62,8 @@ def get_metric_along_trajectory(fixel_weights, metric_maps, roi_sections,
     return m_array, std_array
 
 
-def connectivity_matrix(streamlines, label_volume, inclusive: bool = True):
+def connectivity_matrix(streamlines, label_volume, inclusive: bool = True,
+                        weights=None):
     '''
     Returns the symetric connectivity matrix of the streamlines. Usage of
     trk.to_vox(), trk.to_corner() beforehand is highly recommended. This
@@ -77,6 +79,10 @@ def connectivity_matrix(streamlines, label_volume, inclusive: bool = True):
     inclusive: bool, optional
         Whether to analyze the entire streamline, as opposed to just the
         endpoints.
+    weights: 1D array of size (n), optional
+        Array containing the weights for the n streamlines in the tract. For
+        example the weights computed with SIFT2. Default: the weight of each
+        streamline is set to 1.
 
     Returns
     -------
@@ -90,14 +96,17 @@ def connectivity_matrix(streamlines, label_volume, inclusive: bool = True):
 
     if not inclusive:
         streamlines = [sl[0::len(sl)-1] for sl in streamlines]
+        
+    if weights is None:
+        weights=np.ones(len(streamlines))
 
-    for sl in streamlines:
+    for i,sl in enumerate(tqdm(streamlines, desc='Computing connectivity matrix')):
 
         x, y, z = np.floor(sl.T).astype(int)
         crossed_labels = np.unique(label_volume[x, y, z])
 
         for comb in combinations(crossed_labels, 2):
-            matrix[comb] += 1
+            matrix[comb] += weights[i]
 
     matrix = matrix+matrix.T
 

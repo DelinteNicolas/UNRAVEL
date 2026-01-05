@@ -293,7 +293,7 @@ def get_streamline_number_from_index(streams, index: int) -> int:
 
 def remove_streamlines(streams, idx: int):
     '''
-
+    TODO: speed up with something along the lines of 'streams=streams[idx]'
 
     Parameters
     ----------

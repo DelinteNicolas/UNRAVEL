@@ -337,9 +337,9 @@ def get_streamline_density(trk, resolution_increase: int = 1,
     x, y, z = point.astype(np.int32).T
 
     # Removing streamline end points
-    ends = (streams._offsets+streams._lengths-1)*subsegment
+    true_ends = (streams._offsets+streams._lengths-1)*subsegment
     idx = np.linspace(0, subsegment-1, subsegment, dtype=np.int32)
-    ends = ends[:, np.newaxis] + idx
+    ends = true_ends[:, np.newaxis] + idx
     del idx
     ends = ends.flatten()
 
@@ -349,8 +349,9 @@ def get_streamline_density(trk, resolution_increase: int = 1,
         vs = next_point-point
         del point, next_point
 
-        vs[ends, :] = vs[ends-1, :]
-        del ends
+        vs[ends] = 0
+        vs[true_ends, :] = vs[true_ends-1, :]
+        del ends, true_ends
 
         rgb = np.zeros(tuple(trk._dimensions*resolution_increase)+(3,),
                        dtype=np.float32)

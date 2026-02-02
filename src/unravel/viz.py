@@ -674,3 +674,121 @@ def plot_metric_along_trajectory(mean, dev, new_fig: bool = True,
     plt.xlim([1, len(mean)-1])
     if show_default_label:
         plt.legend(['Weighted mean', 'Weighted deviation'])
+
+
+def create_streamline_propagation_gif(trk, out_gif: str, slice_sel: tuple,
+                                      resolution_increase: int = 6,
+                                      subsegment: int = 5, n_frames: int = 800,
+                                      fps: int = 30, color: bool = False):
+    """
+    Create a GIF of neural activity propagating through all streamlines.
+
+    Parameters
+    ----------
+    trk : tractogram
+        Content of a .trk file
+    out_gif : str
+        Path and filename of output GIF (can end in .gif or .webp).
+    slice_sel : tuple
+        Exactly one integer and two slice(None), e.g.
+        (x, :, :) or (:, y, :) or (:, :, z)
+    resolution_increase : int, optional
+        Factor multiplying the resolution/dimensions of output array. The
+        default is 1.
+    subsegment : int, optional
+        Divides the streamline segment into n subsegments. Increases spatial
+        resolution of streamline segments and computation time. The default
+        is 2.
+    n_frames : int, optional
+        Number of frames. The default is 400.
+    fps : int, optional
+        Frames per second. The default is 20.
+    color : bool, optional
+        If True, output a RGB volume with colors corresponding to the
+        directions of the streamlines, modulated by streamline density.
+        The default is False.
+
+    Returns
+    -------
+    None.
+
+    """
+
+    streams = trk.streamlines
+
+    # --- Subsegmented streamline points
+    points = streams.get_data().astype(np.float32) * resolution_increase
+    subpoints = np.linspace(points, np.roll(points, -1, axis=0),
+                            subsegment + 1, axis=1)
+    points = subpoints[:, :-1, :].reshape(points.shape[0] * subsegment, 3)
+    coords = points.astype(np.int32)
+    x, y, z = coords.T
+
+    # --- Streamline indexing
+    lengths = np.array(streams._lengths * subsegment)
+    offsets = np.array(streams._offsets * subsegment)
+
+    dens = get_streamline_density(trk, resolution_increase=resolution_increase,
+                                  color=color, norm_all_voxels=False)
+
+    # --- Determine slice axis
+    slice_sel = tuple(slice_sel)
+    fixed_axis = next(i for i, s in enumerate(
+        slice_sel) if not isinstance(s, slice))
+    fixed_value = slice_sel[fixed_axis]
+
+    # Indices of the two in-plane axes
+    plane_axes = [i for i in range(3) if i != fixed_axis]
+
+    # Full coordinate array
+    coords = points.astype(np.int32)
+
+    # Coordinates for masking
+    fixed_coord = coords[:, fixed_axis]
+    u_coord = coords[:, plane_axes[0]]
+    v_coord = coords[:, plane_axes[1]]
+
+    # Max intensity on slice (grayscale mode)
+    slice_max = dens[slice_sel].max()
+
+    # --- Direction colors
+    if color:
+        next_points = np.roll(points, -1, axis=0)
+        vs = next_points - points
+
+        true_ends = (streams._offsets + streams._lengths - 1) * subsegment
+        vs[true_ends] = vs[true_ends - 1]
+
+        norm = np.linalg.norm(vs, axis=1, keepdims=True)
+        norm[norm == 0] = 1.0
+        rgb_dirs = np.abs(vs / norm)
+
+    frames = []
+
+    for t in tqdm(range(n_frames)):
+
+        slice_img = dens[slice_sel].copy()
+
+        # --- Active streamline positions
+        pos = ((t / (n_frames - 1)) * (lengths - subsegment)).astype(np.int32)
+        p = offsets + pos
+
+        # --- Streamlines intersecting the slice
+        mask = fixed_coord[p] == fixed_value
+        p_sel = p[mask]
+
+        if color:
+            slice_img[u_coord[p_sel], v_coord[p_sel]] = rgb_dirs[p_sel]
+        else:
+            slice_img[u_coord[p_sel], v_coord[p_sel]] = slice_max
+
+        # --- Convert to uint8 if needed
+        if not color:
+            slice_img /= slice_max
+        slice_img = (slice_img * 255).astype(np.uint8)
+
+        frames.append(Image.fromarray(slice_img))
+
+    # --- Save GIF
+    frames[0].save(out_gif, save_all=True, append_images=frames[1:],
+                   duration=int(1000 / fps), disposal=2)

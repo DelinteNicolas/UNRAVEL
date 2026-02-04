@@ -42,7 +42,8 @@ def tract_to_ROI(trk_file: str):
     return ROI
 
 
-def peaks_to_RGB(peaks, frac=None, fvf=None, order: str = 'rgb'):
+def peaks_to_RGB(peaks, frac=None, fvf=None, order: str = 'rgb',
+                 norm_color: bool = False):
     '''
     Returns a RGB map of shape (x,y,z,3) representing the main direction of
     of the peaks. Optionaly scaled by fraction and/or fiber volume fraction.
@@ -89,7 +90,7 @@ def peaks_to_RGB(peaks, frac=None, fvf=None, order: str = 'rgb'):
     rgb = np.sum(abs(peaks)*frac*fvf, axis=-1)
 
     # Normalize
-    if frac is None and fvf is None:
+    if norm_color:
         rgb = normalize_color(rgb, norm_all_voxels=True)
 
     # Color order

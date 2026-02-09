@@ -239,6 +239,28 @@ def get_streamline_count(trk) -> int:
     return count
 
 
+def get_streamline_lengths(trk):
+    '''
+    Returns an array with the lengths of the n streamlines in a tractogram.
+
+    Parameters
+    ----------
+    trk : tractogram
+        Content of a .trk file
+
+    Returns
+    -------
+    length : 1D array of size (n)
+        Lengths of the n streamlines in a tractogram.
+    '''
+
+    # Safety net
+    if type(trk) == str:
+        trk = load_tractogram(trk, 'same')
+
+    return trk.streamlines._lengths
+
+
 def get_streamline_angle(trk, resolution_increase: int = 1):
     '''
     Get the fixel weights from a tract specified in trk_file.

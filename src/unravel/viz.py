@@ -99,68 +99,6 @@ def overlap_volumes(vol_list: list, rgb: bool = True, order: int = 0):
         return back[:, :, :, 0]
 
 
-def convert_to_gif(array, output_folder: str, extension: str = 'webp',
-                   axis: int = 2, transparency: bool = False,
-                   keep_frames: bool = False):
-    '''
-    Creates a GIF from a 3D volume.
-
-    Parameters
-    ----------
-    array : 3-D array of shape (x,y,z) or (x,y,z,3)
-        DESCRIPTION.
-    output_folder : str
-        Output filename. Ex: 'output_path/filename'
-    extension : str, optional
-        File format. The default is 'webp'.
-    axis : int, optional
-        Axis number to iterate over. The default is 2.
-    transparency : bool, optional
-        If True, zero is converted to transparent. The default is False.
-    keep_frames : bool, optional
-        Only if transparent and gif. Overlaps new frames onto old frames.
-        The default is False.
-
-    Returns
-    -------
-    None.
-
-    '''
-
-    frames = []
-
-    # Normalize
-    array /= np.max(array)
-
-    if len(array.shape) == 3:       # If not RGB
-        array = grayscale_to_rgb(array)
-
-    for i in tqdm(range(array.shape[axis])):
-
-        slic = tuple([i if d == axis else slice(None)
-                      for d in range(len(array.shape))])
-
-        data = array[slic]
-
-        if transparency:
-            alpha = (np.sum(data, axis=2) != 0)*1
-            data = np.dstack((data, alpha))
-
-        data = (data*255).astype('uint8')
-
-        image = Image.fromarray(data)
-        frames.append(image)
-
-    if keep_frames:
-        disposal = 0
-    else:
-        disposal = 2
-
-    frames[0].save(output_folder+'.'+extension,
-                   lossless=True, save_all=True, append_images=frames,
-                   disposal=disposal)
-
-
 def plot_alpha_surface_matplotlib(vf: list, method: str = 'raw',
                                   weighting_function=None,
                                   show_v: bool = False):
@@ -676,6 +614,68 @@ def plot_metric_along_trajectory(mean, dev, new_fig: bool = True,
         plt.legend(['Weighted mean', 'Weighted deviation'])
 
 
+def convert_to_gif(array, output_folder: str, extension: str = 'webp',
+                   axis: int = 2, transparency: bool = False,
+                   keep_frames: bool = False):
+    '''
+    Creates a GIF from a 3D volume.
+
+    Parameters
+    ----------
+    array : 3-D array of shape (x,y,z) or (x,y,z,3)
+        DESCRIPTION.
+    output_folder : str
+        Output filename. Ex: 'output_path/filename'
+    extension : str, optional
+        File format. The default is 'webp'.
+    axis : int, optional
+        Axis number to iterate over. The default is 2.
+    transparency : bool, optional
+        If True, zero is converted to transparent. The default is False.
+    keep_frames : bool, optional
+        Only if transparent and gif. Overlaps new frames onto old frames.
+        The default is False.
+
+    Returns
+    -------
+    None.
+
+    '''
+
+    frames = []
+
+    # Normalize
+    array /= np.max(array)
+
+    if len(array.shape) == 3:       # If not RGB
+        array = grayscale_to_rgb(array)
+
+    for i in tqdm(range(array.shape[axis])):
+
+        slic = tuple([i if d == axis else slice(None)
+                      for d in range(len(array.shape))])
+
+        data = array[slic]
+
+        if transparency:
+            alpha = (np.sum(data, axis=2) != 0)*1
+            data = np.dstack((data, alpha))
+
+        data = (data*255).astype('uint8')
+
+        image = Image.fromarray(data)
+        frames.append(image)
+
+    if keep_frames:
+        disposal = 0
+    else:
+        disposal = 2
+
+    frames[0].save(output_folder+'.'+extension,
+                   lossless=True, save_all=True, append_images=frames,
+                   disposal=disposal)
+
+
 def create_streamline_propagation_gif(trk, out_gif: str, slice_sel: tuple,
                                       resolution_increase: int = 6,
                                       subsegment: int = 5, n_frames: int = 800,
@@ -792,3 +792,37 @@ def create_streamline_propagation_gif(trk, out_gif: str, slice_sel: tuple,
     # --- Save GIF
     frames[0].save(out_gif, save_all=True, append_images=frames[1:],
                    duration=int(1000 / fps), disposal=2)
+
+
+def create_gif_pyvista_plotter(plotter, file_path: str):
+    """
+    Create a 360° rotation GIF of the current 3D view. Example usage:
+        plotter=pv.Plotter()
+        plot_trk(trk_file,plotter=plotter, background='white')
+        create_gif(plotter, gif_file)
+
+    Parameters
+    ----------
+    plotter : pyvista Plotter()
+        DESCRIPTION.
+    file_path : str
+        Filepath of the GIF file.
+
+    Returns
+    -------
+    None.
+
+    """
+
+    # Ensure the file has a .gif extension
+    if not file_path.lower().endswith(".gif"):
+        file_path += ".gif"
+
+    # Create the 360° rotation GIF
+    plotter.open_gif(file_path, fps=20)
+    n_frames = 360
+    for i in range(n_frames):
+        plotter.camera.azimuth += 360 / n_frames
+        plotter.render()
+        plotter.write_frame()
+    plotter.close()

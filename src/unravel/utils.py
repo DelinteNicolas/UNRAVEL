@@ -318,7 +318,7 @@ def get_streamline_angle(trk, resolution_increase: int = 1):
 
 def get_streamline_density(trk, resolution_increase: int = 1,
                            color: bool = False, subsegment: int = 10,
-                           norm_all_voxels: bool = True):
+                           norm_all_voxels: bool = True, weights=None):
     '''
     Get the total segment length from a tract specified in trk.
 
@@ -340,6 +340,10 @@ def get_streamline_density(trk, resolution_increase: int = 1,
     norm_all_voxels : bool, optional
         If True, sets all color voxel with a maximum intensity. Else, the
         intensity is weighted by the number of fibers. The default is True.
+    weights : 1D array of size (n), optional
+        Array containing the weights for the n streamlines in the tract. For
+        example the weights computed with SIFT2. Default: the weight of each
+        streamline is set to 1.
 
     Returns
     -------
@@ -366,6 +370,14 @@ def get_streamline_density(trk, resolution_increase: int = 1,
     del idx
     ends = ends.flatten()
 
+    if weights is None:
+        coef = np.ones(x.shape, dtype=np.float32)
+    else:
+        coef = np.repeat(weights,
+                         streams._lengths * subsegment).astype(np.float32)
+
+    coef[ends] = 0
+
     if color:
         # Computing streamline segment vectors
         next_point = np.roll(point, -1, axis=0)
@@ -378,14 +390,12 @@ def get_streamline_density(trk, resolution_increase: int = 1,
 
         rgb = np.zeros(tuple(trk._dimensions*resolution_increase)+(3,),
                        dtype=np.float32)
-        np.add.at(rgb, (x, y, z), abs(vs))
+        weighted_vs = abs(vs) * coef[:, None]
+        np.add.at(rgb, (x, y, z), weighted_vs)
 
         return normalize_color(rgb, norm_all_voxels=norm_all_voxels)
 
     else:
-        coef = np.ones(x.shape, dtype=np.float32)
-
-        coef[ends] = 0
 
         density = np.zeros(trk._dimensions*resolution_increase,
                            dtype=np.float32)
@@ -580,3 +590,25 @@ def fuse_trk(trk_file_1: str, trk_file_2: str, output_file: str):
 
     trk_new = trk.from_sft(streams_1, trk)
     save_tractogram(trk_new, output_file)
+
+
+def load_sift2_weights(weights_file: str, mu_file: str = None):
+
+    text = []
+
+    f = open(weights_file, "r")
+    for x in f:
+        text.append(x)
+    f.close()
+
+    if mu_file is not None:
+        f = open(mu_file, "r")
+        for x in f:
+            mu = float(x)
+        f.close()
+    else:
+        mu = None
+
+    w = np.array([float(i) for i in text[1].split(' ')], dtype='float32')
+
+    return w, mu

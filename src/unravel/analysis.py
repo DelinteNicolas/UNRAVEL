@@ -5,6 +5,7 @@ Created on Fri Aug 18 18:23:26 2023
 @author: DELINTE Nicolas
 """
 
+from scipy.sparse.csgraph import shortest_path
 import numpy as np
 from tqdm import tqdm
 from itertools import combinations
@@ -96,11 +97,11 @@ def connectivity_matrix(streamlines, label_volume, inclusive: bool = True,
 
     if not inclusive:
         streamlines = [sl[0::len(sl)-1] for sl in streamlines]
-        
-    if weights is None:
-        weights=np.ones(len(streamlines))
 
-    for i,sl in enumerate(tqdm(streamlines, desc='Computing connectivity matrix')):
+    if weights is None:
+        weights = np.ones(len(streamlines))
+
+    for i, sl in enumerate(tqdm(streamlines, desc='Computing connectivity matrix')):
 
         x, y, z = np.floor(sl.T).astype(int)
         crossed_labels = np.unique(label_volume[x, y, z])
@@ -111,3 +112,194 @@ def connectivity_matrix(streamlines, label_volume, inclusive: bool = True,
     matrix = matrix+matrix.T
 
     return matrix
+
+
+def degree(A, weighted=True):
+    """
+    Compute node degree.
+
+    Parameters
+    ----------
+    connectivity_matrix : ndarray (N,N)
+        Weighted adjacency matrix.
+    weighted : bool
+        If True, returns node strength (sum of weights).
+        If False, returns binary degree.
+
+    Returns
+    -------
+    deg : ndarray (N,)
+    """
+    A = np.asarray(A)
+
+    if weighted:
+        return np.sum(A, axis=1)
+
+    return np.sum(A > 0, axis=1)
+
+
+def clustering_coefficient(A, weighted=True):
+    """
+    Clustering coefficient.
+
+    Parameters
+    ----------
+    A : (N,N) ndarray
+        Connectivity matrix.
+    weighted : bool
+
+    Returns
+    -------
+    C : (N,) ndarray
+    """
+
+    A = np.asarray(A, dtype=float)
+
+    if not weighted:
+        B = (A > 0).astype(float)
+
+        k = np.sum(B, axis=1)
+
+        triangles = np.diag(B @ B @ B) / 2
+
+        C = np.zeros(len(k))
+
+        mask = k > 1
+        C[mask] = (
+            2 * triangles[mask]
+            / (k[mask] * (k[mask] - 1))
+        )
+
+        return C
+
+    # Onnela et al. weighted clustering coefficient
+
+    if A.max() > 0:
+        W = A / A.max()
+    else:
+        W = A.copy()
+
+    K = np.sum(A > 0, axis=1)
+
+    C = np.zeros(len(A))
+
+    W13 = np.power(W, 1 / 3)
+
+    cyc3 = np.diag(W13 @ W13 @ W13)
+
+    mask = K > 1
+
+    C[mask] = cyc3[mask] / (K[mask] * (K[mask] - 1))
+
+    return C
+
+
+def global_efficiency(A, weighted=True):
+    """
+    Global efficiency.
+
+    Parameters
+    ----------
+    A : (N,N) ndarray
+        Connectivity matrix.
+    weighted : bool
+
+    Returns
+    -------
+    Eglob : float
+    """
+
+    A = np.asarray(A, dtype=float)
+
+    if weighted:
+
+        Dmat = np.zeros_like(A)
+
+        mask = A > 0
+        Dmat[mask] = 1.0 / A[mask]
+
+        D = shortest_path(
+            Dmat,
+            directed=False,
+            unweighted=False
+        )
+
+    else:
+
+        D = shortest_path(
+            (A > 0).astype(float),
+            directed=False,
+            unweighted=True
+        )
+
+    with np.errstate(divide='ignore'):
+        invD = 1.0 / D
+
+    np.fill_diagonal(invD, 0)
+
+    N = len(A)
+
+    return invD.sum() / (N * (N - 1))
+
+
+def local_efficiency(A, weighted=True):
+    """
+    Local efficiency for each node.
+
+    Parameters
+    ----------
+    A : (N,N) ndarray
+        Connectivity matrix.
+    weighted : bool
+
+    Returns
+    -------
+    Eloc : (N,) ndarray
+    """
+
+    A = np.asarray(A, dtype=float)
+
+    N = len(A)
+
+    Eloc = np.zeros(N)
+
+    for i in range(N):
+
+        neighbors = np.where(A[i] > 0)[0]
+
+        m = len(neighbors)
+
+        if m < 2:
+            continue
+
+        subA = A[np.ix_(neighbors, neighbors)]
+
+        if weighted:
+
+            Dmat = np.zeros_like(subA)
+
+            mask = subA > 0
+            Dmat[mask] = 1.0 / subA[mask]
+
+            D = shortest_path(
+                Dmat,
+                directed=False,
+                unweighted=False
+            )
+
+        else:
+
+            D = shortest_path(
+                (subA > 0).astype(float),
+                directed=False,
+                unweighted=True
+            )
+
+        with np.errstate(divide='ignore'):
+            invD = 1.0 / D
+
+        np.fill_diagonal(invD, 0)
+
+        Eloc[i] = invD.sum() / (m * (m - 1))
+
+    return Eloc

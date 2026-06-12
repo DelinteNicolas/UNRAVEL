@@ -157,18 +157,13 @@ def clustering_coefficient(A, weighted=True):
 
     if not weighted:
         B = (A > 0).astype(float)
-
         k = np.sum(B, axis=1)
-
         triangles = np.diag(B @ B @ B) / 2
 
         C = np.zeros(len(k))
 
         mask = k > 1
-        C[mask] = (
-            2 * triangles[mask]
-            / (k[mask] * (k[mask] - 1))
-        )
+        C[mask] = (2 * triangles[mask] / (k[mask] * (k[mask] - 1)))
 
         return C
 
@@ -180,15 +175,11 @@ def clustering_coefficient(A, weighted=True):
         W = A.copy()
 
     K = np.sum(A > 0, axis=1)
-
     C = np.zeros(len(A))
-
     W13 = np.power(W, 1 / 3)
-
     cyc3 = np.diag(W13 @ W13 @ W13)
 
     mask = K > 1
-
     C[mask] = cyc3[mask] / (K[mask] * (K[mask] - 1))
 
     return C
@@ -214,29 +205,20 @@ def global_efficiency(A, weighted=True):
     if weighted:
 
         Dmat = np.zeros_like(A)
-
         mask = A > 0
         Dmat[mask] = 1.0 / A[mask]
 
-        D = shortest_path(
-            Dmat,
-            directed=False,
-            unweighted=False
-        )
+        D = shortest_path(Dmat, directed=False, unweighted=False)
 
     else:
 
-        D = shortest_path(
-            (A > 0).astype(float),
-            directed=False,
-            unweighted=True
-        )
+        D = shortest_path((A > 0).astype(float),
+                          directed=False, unweighted=True)
 
     with np.errstate(divide='ignore'):
         invD = 1.0 / D
 
     np.fill_diagonal(invD, 0)
-
     N = len(A)
 
     return invD.sum() / (N * (N - 1))
@@ -258,9 +240,7 @@ def local_efficiency(A, weighted=True):
     """
 
     A = np.asarray(A, dtype=float)
-
     N = len(A)
-
     Eloc = np.zeros(N)
 
     for i in range(N):
@@ -277,29 +257,20 @@ def local_efficiency(A, weighted=True):
         if weighted:
 
             Dmat = np.zeros_like(subA)
-
             mask = subA > 0
             Dmat[mask] = 1.0 / subA[mask]
 
-            D = shortest_path(
-                Dmat,
-                directed=False,
-                unweighted=False
-            )
+            D = shortest_path(Dmat, directed=False, unweighted=False)
 
         else:
 
-            D = shortest_path(
-                (subA > 0).astype(float),
-                directed=False,
-                unweighted=True
-            )
+            D = shortest_path((subA > 0).astype(float), directed=False,
+                              unweighted=True)
 
         with np.errstate(divide='ignore'):
             invD = 1.0 / D
 
         np.fill_diagonal(invD, 0)
-
         Eloc[i] = invD.sum() / (m * (m - 1))
 
     return Eloc
